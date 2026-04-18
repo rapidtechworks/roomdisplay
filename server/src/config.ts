@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import path from 'path';
+import path from 'node:path';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
