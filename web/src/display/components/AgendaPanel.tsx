@@ -38,8 +38,8 @@ function groupByDay(events: CachedEvent[], now: Date, timeZone: string): DayGrou
       else if (key === tomorrow) label = 'Tomorrow';
       else {
         // For display, parse the key as a local date to avoid DST edge cases
-        const [y, mo, d] = key.split('-').map(Number);
-        const displayDate = new Date(y, mo - 1, d);
+        const parts = key.split('-');
+        const displayDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
         label = displayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
       }
       groups.set(key, { label, events: [] });
