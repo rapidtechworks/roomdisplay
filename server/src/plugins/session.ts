@@ -19,7 +19,7 @@ export async function registerSessionPlugin(server: FastifyInstance) {
     cookieName: 'roomdisplay_session',
     cookie: {
       httpOnly: true,
-      secure: config.isProd,   // HTTPS-only in production; HTTP ok in dev
+      secure: false,   // LAN deployment uses plain HTTP; no HTTPS required
       sameSite: 'lax',
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days in ms
       path: '/',
