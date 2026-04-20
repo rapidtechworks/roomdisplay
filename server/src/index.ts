@@ -5,6 +5,9 @@ import fastifyStatic from '@fastify/static';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { config } from './config.js';
+import { db } from './db/index.js';
+import { runMigrations } from './db/runMigrations.js';
+import { syncSource } from './lib/syncSource.js';
 import { registerSessionPlugin } from './plugins/session.js';
 import { registerCsrfPlugin } from './plugins/csrf.js';
 import { registerHealthRoute } from './routes/health.js';
@@ -27,6 +30,9 @@ const server = Fastify({
   },
   trustProxy: true, // needed for correct request.ip behind a reverse proxy
 });
+
+// ─── Migrations (run before anything else touches the DB) ────────────────────
+const { applied: migrationsApplied } = runMigrations({ info: (msg) => server.log.info(msg) });
 
 // ─── Plugins (order matters) ──────────────────────────────────────────────────
 
@@ -94,6 +100,19 @@ try {
   await server.listen({ port: config.PORT, host });
   server.log.info(`Room Display server running on port ${config.PORT}`);
   startScheduler(server.log);
+
+  // If new migrations were applied this startup, immediately re-sync all sources
+  // so cached data reflects any schema changes (e.g. new columns).
+  if (migrationsApplied > 0) {
+    server.log.info('New migrations applied — triggering full sync of all sources');
+    db.selectFrom('calendar_sources').select('id').execute().then((sources) => {
+      for (const s of sources) {
+        syncSource(s.id).catch((err) =>
+          server.log.warn({ err, sourceId: s.id }, 'Post-migration sync failed'),
+        );
+      }
+    }).catch(() => { /* non-critical */ });
+  }
 } catch (err) {
   server.log.error(err);
   process.exit(1);
