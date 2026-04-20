@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sqlite } from './index.js';
-import { DEFAULT_THEME } from '../../../../shared/src/index.js';
+import { DEFAULT_THEME } from '../../../shared/src/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
