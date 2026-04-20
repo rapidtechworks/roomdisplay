@@ -1,9 +1,11 @@
 /**
  * AES-256-GCM encrypt/decrypt for storing calendar source credentials.
- * Key comes from ENCRYPTION_KEY env var (32+ byte hex string).
+ * Key comes from ENCRYPTION_KEY env var — any string of 16+ characters.
+ * We derive a consistent 32-byte AES key via SHA-256 so the env var
+ * can be any format (plain string, hex, base64, etc.).
  * Losing the key means all stored credentials must be re-entered.
  */
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { config } from './config.js';
 
 const ALGORITHM = 'aes-256-gcm';
@@ -11,8 +13,8 @@ const IV_BYTES = 12;   // 96-bit IV — recommended for GCM
 const TAG_BYTES = 16;  // 128-bit auth tag — GCM default
 
 function getKey(): Buffer {
-  // ENCRYPTION_KEY is a hex string; convert to raw bytes
-  return Buffer.from(config.ENCRYPTION_KEY, 'hex');
+  // SHA-256 of the env var → always exactly 32 bytes regardless of input format
+  return createHash('sha256').update(config.ENCRYPTION_KEY, 'utf8').digest();
 }
 
 /**

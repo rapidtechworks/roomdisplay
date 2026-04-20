@@ -6,8 +6,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   DATA_DIR: z.string().min(1),
   DATABASE_URL: z.string().min(1),
-  SESSION_SECRET: z.string().min(32),
-  ENCRYPTION_KEY: z.string().min(32),
+  SESSION_SECRET: z.string().min(16),
+  ENCRYPTION_KEY: z.string().min(16),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
   DEFAULT_TIMEZONE: z.string().default('America/Chicago'),
 });
