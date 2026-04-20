@@ -26,19 +26,41 @@ async function tick(log: FastifyBaseLogger): Promise<void> {
 
   for (const source of sources) {
     const lastSynced = source.last_synced_at ? new Date(source.last_synced_at).getTime() : 0;
-    const due = now - lastSynced >= source.poll_interval_seconds * 1000;
+    const elapsedSec = Math.floor((now - lastSynced) / 1000);
+    const due = elapsedSec >= source.poll_interval_seconds;
 
     if (!due) continue;
 
+    log.info(
+      { sourceId: source.id, sourceName: source.display_name, elapsedSec },
+      'Scheduler: syncing source',
+    );
+
     // Fire without awaiting so one slow source doesn't delay the others
-    syncSource(source.id).catch((err: unknown) => {
-      log.warn({ err, sourceId: source.id, sourceName: source.display_name }, 'Scheduler sync failed');
-    });
+    syncSource(source.id)
+      .then((result) => {
+        if (result.status === 'ok') {
+          log.info(
+            { sourceId: source.id, roomsSynced: result.roomsSynced, eventsUpserted: result.eventsUpserted, durationMs: result.durationMs },
+            'Scheduler: sync complete',
+          );
+        } else {
+          log.warn(
+            { sourceId: source.id, message: result.message },
+            'Scheduler: sync returned error status',
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        log.warn({ err, sourceId: source.id, sourceName: source.display_name }, 'Scheduler: sync threw unexpectedly');
+      });
   }
 }
 
 export function startScheduler(log: FastifyBaseLogger): void {
   if (timer) return; // already running
+
+  log.info({ tickMs: TICK_MS }, 'Scheduler started');
 
   // First tick after a short delay so the server finishes starting up
   const initial = setTimeout(() => {
