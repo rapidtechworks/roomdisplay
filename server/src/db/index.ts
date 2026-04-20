@@ -11,7 +11,7 @@ const dbPath = config.DATABASE_URL.replace(/^file:/, '');
 // Ensure the directory exists before opening the DB
 mkdirSync(dirname(dbPath), { recursive: true });
 
-const sqlite = new Database(dbPath);
+const sqlite: InstanceType<typeof Database> = new Database(dbPath);
 
 // Enable WAL mode for better concurrent read performance
 sqlite.pragma('journal_mode = WAL');
