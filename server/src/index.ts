@@ -7,6 +7,7 @@ import { registerHealthRoute } from './routes/health.js';
 import { registerAuthRoutes } from './routes/admin/auth.js';
 import { registerSourcesRoutes } from './routes/admin/sources.js';
 import { registerRoomsRoutes } from './routes/admin/rooms.js';
+import { registerRoomRoutes } from './routes/rooms.js';
 
 const server = Fastify({
   logger: {
@@ -32,6 +33,7 @@ await registerHealthRoute(server);
 await registerAuthRoutes(server);
 await registerSourcesRoutes(server);
 await registerRoomsRoutes(server);
+await registerRoomRoutes(server);
 
 // ─── Start ───────────────────────────────────────────────────────────────────
 
