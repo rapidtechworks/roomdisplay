@@ -5,7 +5,7 @@
   "workspaces": ["server", "web", "shared"],
   "scripts": {
     "dev": "concurrently -n server,web -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
-    "build": "npm run build -w web && npm run build -w shared && npm run build -w server",
+    "build": "npm run build -w web && npm run build -w server",
     "start": "npm run start -w server",
     "prod": "npm run build && NODE_ENV=production npm run start",
     "migrate": "npm run migrate -w server",
