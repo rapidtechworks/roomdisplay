@@ -1,11 +1,23 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { RoomState, WsClientMessage, WsServerMessage } from '@roomdisplay/shared';
 
+function generateUuid(): string {
+  // crypto.randomUUID() requires a secure context (HTTPS/localhost).
+  // Fall back to a manual implementation for plain-HTTP LAN access.
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 function getOrCreateTabletUuid(): string {
   const KEY = 'roomdisplay_tablet_uuid';
   let uuid = localStorage.getItem(KEY);
   if (!uuid) {
-    uuid = crypto.randomUUID();
+    uuid = generateUuid();
     localStorage.setItem(KEY, uuid);
   }
   return uuid;
