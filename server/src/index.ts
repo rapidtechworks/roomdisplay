@@ -11,6 +11,7 @@ import { registerRoomsRoutes } from './routes/admin/rooms.js';
 import { registerRoomRoutes } from './routes/rooms.js';
 import { registerWsRoute } from './routes/ws.js';
 import { broadcastShutdown } from './lib/wsManager.js';
+import { startScheduler, stopScheduler } from './lib/scheduler.js';
 
 const server = Fastify({
   logger: {
@@ -47,6 +48,7 @@ await registerWsRoute(server);
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, async () => {
     server.log.info(`Received ${signal} — shutting down`);
+    stopScheduler();
     broadcastShutdown();
     await server.close();
     process.exit(0);
@@ -61,6 +63,7 @@ try {
   const host = config.isDev ? '127.0.0.1' : '0.0.0.0';
   await server.listen({ port: config.PORT, host });
   server.log.info(`Room Display server running on port ${config.PORT}`);
+  startScheduler(server.log);
 } catch (err) {
   server.log.error(err);
   process.exit(1);
