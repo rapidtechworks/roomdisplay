@@ -6,6 +6,7 @@ import { registerCsrfPlugin } from './plugins/csrf.js';
 import { registerHealthRoute } from './routes/health.js';
 import { registerAuthRoutes } from './routes/admin/auth.js';
 import { registerSourcesRoutes } from './routes/admin/sources.js';
+import { registerRoomsRoutes } from './routes/admin/rooms.js';
 
 const server = Fastify({
   logger: {
@@ -30,6 +31,7 @@ await registerCsrfPlugin(server);
 await registerHealthRoute(server);
 await registerAuthRoutes(server);
 await registerSourcesRoutes(server);
+await registerRoomsRoutes(server);
 
 // ─── Start ───────────────────────────────────────────────────────────────────
 
