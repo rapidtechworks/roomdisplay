@@ -1,4 +1,4 @@
-import * as ical from 'node-ical';
+import ical from 'node-ical';
 import { request as httpsRequest } from 'node:https';
 import { request as httpRequest } from 'node:http';
 import type {
