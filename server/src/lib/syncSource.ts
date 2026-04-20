@@ -4,6 +4,7 @@
  */
 import { db, sqlite } from '../db/index.js';
 import { buildProvider } from '../providers/index.js';
+import { pushRoomState } from './wsManager.js';
 
 const SYNC_WINDOW_DAYS = 14;
 
@@ -42,7 +43,7 @@ export async function syncSource(sourceId: number): Promise<SyncResult> {
   // Load all rooms mapped to this source
   const rooms = await db
     .selectFrom('rooms')
-    .select(['id', 'external_calendar_id', 'time_zone'])
+    .select(['id', 'slug', 'external_calendar_id', 'time_zone'])
     .where('calendar_source_id', '=', sourceId)
     .execute();
 
@@ -146,6 +147,11 @@ export async function syncSource(sourceId: number): Promise<SyncResult> {
       })
       .where('id', '=', sourceId)
       .execute();
+
+    // Push fresh state to any tablets currently connected to these rooms
+    for (const room of rooms) {
+      pushRoomState(room.slug).catch(() => { /* non-critical */ });
+    }
 
     return {
       sourceId,

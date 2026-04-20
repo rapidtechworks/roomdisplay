@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
+import websocketPlugin from '@fastify/websocket';
 import { config } from './config.js';
 import { registerSessionPlugin } from './plugins/session.js';
 import { registerCsrfPlugin } from './plugins/csrf.js';
@@ -8,6 +9,8 @@ import { registerAuthRoutes } from './routes/admin/auth.js';
 import { registerSourcesRoutes } from './routes/admin/sources.js';
 import { registerRoomsRoutes } from './routes/admin/rooms.js';
 import { registerRoomRoutes } from './routes/rooms.js';
+import { registerWsRoute } from './routes/ws.js';
+import { broadcastShutdown } from './lib/wsManager.js';
 
 const server = Fastify({
   logger: {
@@ -27,6 +30,9 @@ await registerSessionPlugin(server);
 // 2. CSRF protection (requires cookie plugin)
 await registerCsrfPlugin(server);
 
+// 3. WebSocket support (must be before WS routes)
+await server.register(websocketPlugin);
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 await registerHealthRoute(server);
@@ -34,8 +40,20 @@ await registerAuthRoutes(server);
 await registerSourcesRoutes(server);
 await registerRoomsRoutes(server);
 await registerRoomRoutes(server);
+await registerWsRoute(server);
 
-// ─── Start ───────────────────────────────────────────────────────────────────
+// ─── Graceful shutdown ────────────────────────────────────────────────────────
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, async () => {
+    server.log.info(`Received ${signal} — shutting down`);
+    broadcastShutdown();
+    await server.close();
+    process.exit(0);
+  });
+}
+
+// ─── Start ────────────────────────────────────────────────────────────────────
 
 try {
   // In dev, bind to localhost only. In production, bind to all interfaces
