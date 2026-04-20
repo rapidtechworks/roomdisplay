@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import websocketPlugin from '@fastify/websocket';
+import fastifyStatic from '@fastify/static';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { config } from './config.js';
 import { registerSessionPlugin } from './plugins/session.js';
 import { registerCsrfPlugin } from './plugins/csrf.js';
@@ -12,6 +15,8 @@ import { registerRoomRoutes } from './routes/rooms.js';
 import { registerWsRoute } from './routes/ws.js';
 import { broadcastShutdown } from './lib/wsManager.js';
 import { startScheduler, stopScheduler } from './lib/scheduler.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const server = Fastify({
   logger: {
@@ -42,6 +47,31 @@ await registerSourcesRoutes(server);
 await registerRoomsRoutes(server);
 await registerRoomRoutes(server);
 await registerWsRoute(server);
+
+// ─── Static file serving (production only) ───────────────────────────────────
+// In dev, Vite serves the frontend and proxies API calls to this server.
+// In production, this server serves the built frontend from web/dist.
+
+if (config.isProd) {
+  // __dirname is server/dist in prod, server/src in dev (tsx).
+  // Either way, two levels up lands at the repo root → web/dist.
+  const webDist = path.resolve(__dirname, '../../web/dist');
+
+  await server.register(fastifyStatic, {
+    root:    webDist,
+    prefix:  '/',
+    wildcard: false, // don't auto-register a catch-all; we do it below
+  });
+
+  // SPA fallback: serve index.html for every non-API / non-WS path so
+  // client-side React Router handles routing.
+  server.setNotFoundHandler(async (request, reply) => {
+    if (request.url.startsWith('/api') || request.url === '/ws') {
+      return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Route not found' });
+    }
+    return reply.sendFile('index.html');
+  });
+}
 
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
 
