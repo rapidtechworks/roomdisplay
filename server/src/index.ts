@@ -61,7 +61,7 @@ await registerWsRoute(server);
 if (config.isProd) {
   // __dirname is server/dist in prod, server/src in dev (tsx).
   // Either way, two levels up lands at the repo root → web/dist.
-  const webDist = path.resolve(__dirname, '../../web/dist');
+  const webDist = path.join(process.cwd(), 'web', 'dist');
 
   await server.register(fastifyStatic, {
     root:    webDist,

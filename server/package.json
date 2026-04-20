@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "tsc && cp -r src/db/migrations dist/server/src/db/migrations",
+    "start": "node dist/server/src/index.js",
     "migrate": "tsx src/db/migrate.ts",
     "init-admin": "tsx src/scripts/init-admin.ts",
     "typecheck": "tsc --noEmit"
