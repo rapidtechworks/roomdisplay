@@ -96,13 +96,14 @@ export async function syncSource(sourceId: number): Promise<SyncResult> {
           // Upsert into bookings_cache
           sqlite
             .prepare(`
-              INSERT INTO bookings_cache (room_id, source, external_id, title, starts_at, ends_at, last_synced_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
+              INSERT INTO bookings_cache (room_id, source, external_id, title, starts_at, ends_at, all_day, last_synced_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT (source, external_id, room_id)
               DO UPDATE SET
                 title          = excluded.title,
                 starts_at      = excluded.starts_at,
                 ends_at        = excluded.ends_at,
+                all_day        = excluded.all_day,
                 last_synced_at = excluded.last_synced_at
             `)
             .run(
@@ -112,6 +113,7 @@ export async function syncSource(sourceId: number): Promise<SyncResult> {
               event.title,
               event.startsAt.toISOString(),
               event.endsAt.toISOString(),
+              event.allDay ? 1 : 0,
               now,
             );
           totalUpserted++;

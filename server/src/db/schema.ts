@@ -46,6 +46,7 @@ export interface BookingsCacheTable {
   title: string;
   starts_at: string;                // UTC ISO-8601
   ends_at: string;                  // UTC ISO-8601
+  all_day: number;                  // SQLite boolean (0/1)
   last_synced_at: string;
 }
 

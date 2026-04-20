@@ -11,6 +11,7 @@ export interface RemoteEvent {
   title: string;
   startsAt: Date;      // Absolute UTC
   endsAt: Date;        // Absolute UTC
+  allDay?: boolean;    // True when the source event is a DATE (not DATETIME) value
 }
 
 export interface ConnectionResult {

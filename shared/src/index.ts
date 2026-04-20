@@ -27,6 +27,7 @@ export interface CachedEvent {
   title: string;
   startsAt: string;    // UTC ISO-8601
   endsAt: string;      // UTC ISO-8601
+  allDay: boolean;     // True for DATE-only events (no time component in source)
 }
 
 export interface RoomState {

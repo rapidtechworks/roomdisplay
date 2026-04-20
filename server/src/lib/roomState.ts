@@ -51,7 +51,7 @@ export async function buildRoomState(slug: string): Promise<RoomState | null> {
 
   const rows = await db
     .selectFrom('bookings_cache')
-    .select(['id', 'source', 'title', 'starts_at', 'ends_at'])
+    .select(['id', 'source', 'title', 'starts_at', 'ends_at', 'all_day'])
     .where('room_id',   '=', room.id)
     .where('ends_at',   '>', now.toISOString())
     .where('starts_at', '<', windowEnd.toISOString())
@@ -64,6 +64,7 @@ export async function buildRoomState(slug: string): Promise<RoomState | null> {
     title:    r.title,
     startsAt: r.starts_at,
     endsAt:   r.ends_at,
+    allDay:   r.all_day === 1,
   }));
 
   const theme = await loadTheme(room.theme_override_id);

@@ -9,23 +9,39 @@ interface Props {
 
 interface DayGroup { label: string; events: CachedEvent[] }
 
-function dayKey(date: Date, timeZone: string): string {
+// For timed events, key by the date in the room's timezone.
+// For all-day events, use the UTC date directly — the iCal DATE value
+// (e.g. 20260421) is stored as midnight UTC and must NOT be timezone-shifted
+// or it will fall on the wrong calendar day.
+function dayKey(date: Date, timeZone: string, allDay: boolean): string {
+  if (allDay) {
+    // Extract the UTC calendar date directly to avoid timezone skew.
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
   return new Intl.DateTimeFormat('en-CA', { timeZone, dateStyle: 'short' }).format(date);
 }
 
 function groupByDay(events: CachedEvent[], now: Date, timeZone: string): DayGroup[] {
-  const today    = dayKey(now, timeZone);
-  const tomorrow = dayKey(new Date(now.getTime() + 86_400_000), timeZone);
+  const today    = dayKey(now, timeZone, false);
+  const tomorrow = dayKey(new Date(now.getTime() + 86_400_000), timeZone, false);
   const groups   = new Map<string, DayGroup>();
 
   for (const event of events) {
     const start = new Date(event.startsAt);
-    const key   = dayKey(start, timeZone);
+    const key   = dayKey(start, timeZone, event.allDay);
     if (!groups.has(key)) {
       let label: string;
       if (key === today)         label = 'Today';
       else if (key === tomorrow) label = 'Tomorrow';
-      else                       label = start.toLocaleDateString('en-US', { timeZone, weekday: 'short', month: 'short', day: 'numeric' });
+      else {
+        // For display, parse the key as a local date to avoid DST edge cases
+        const [y, mo, d] = key.split('-').map(Number);
+        const displayDate = new Date(y, mo - 1, d);
+        label = displayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      }
       groups.set(key, { label, events: [] });
     }
     groups.get(key)!.events.push(event);
@@ -38,11 +54,7 @@ function fmtTime(iso: string, timeZone: string): string {
 }
 
 function isAllDay(event: CachedEvent): boolean {
-  const s = new Date(event.startsAt);
-  const e = new Date(event.endsAt);
-  return s.getUTCHours() === 0 && s.getUTCMinutes() === 0 &&
-         e.getUTCHours() === 0 && e.getUTCMinutes() === 0 &&
-         (e.getTime() - s.getTime()) >= 86_400_000;
+  return event.allDay;
 }
 
 export function AgendaPanel({ events, timeZone, now, theme }: Props) {

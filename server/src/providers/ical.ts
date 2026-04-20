@@ -102,6 +102,11 @@ export class IcalProvider implements CalendarProvider {
       const event = component as ical.VEvent;
       const summary = (event.summary ?? '(No title)').trim();
 
+      // node-ical sets `dateOnly = true` on Date objects parsed from
+      // DTSTART;VALUE=DATE (all-day events with no time component).
+      const rawStart = event.start instanceof Date ? event.start : new Date(String(event.start));
+      const isAllDay = (rawStart as Date & { dateOnly?: boolean }).dateOnly === true;
+
       if (event.rrule) {
         // ── Recurring event ────────────────────────────────────────────────
         const occurrences = event.rrule.between(from, to, true);
@@ -115,9 +120,8 @@ export class IcalProvider implements CalendarProvider {
           }
         }
 
-        const eventStart = event.start instanceof Date ? event.start : new Date(String(event.start));
-        const eventEnd   = event.end   instanceof Date ? event.end   : new Date(eventStart);
-        const durationMs = eventEnd.getTime() - eventStart.getTime();
+        const eventEnd   = event.end   instanceof Date ? event.end   : new Date(rawStart);
+        const durationMs = eventEnd.getTime() - rawStart.getTime();
 
         for (const occurrence of occurrences) {
           if (exdates.has(occurrence.getTime())) continue;
@@ -128,20 +132,21 @@ export class IcalProvider implements CalendarProvider {
             title: summary,
             startsAt: occurrence,
             endsAt: occEnd,
+            allDay: isAllDay,
           });
         }
       } else {
         // ── Single event ───────────────────────────────────────────────────
-        const start = event.start instanceof Date ? event.start : new Date(String(event.start));
-        const end   = event.end   instanceof Date ? event.end   : new Date(start);
+        const end = event.end instanceof Date ? event.end : new Date(rawStart);
 
         // Overlap check: event overlaps [from, to) if start < to AND end > from
-        if (start < to && end > from) {
+        if (rawStart < to && end > from) {
           events.push({
             externalId: uid,
             title: summary,
-            startsAt: start,
+            startsAt: rawStart,
             endsAt: end,
+            allDay: isAllDay,
           });
         }
       }
