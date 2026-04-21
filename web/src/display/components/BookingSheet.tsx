@@ -23,12 +23,11 @@ interface Props {
 
 type Stage = 'loading' | 'picking' | 'none' | 'submitting' | 'success' | 'error';
 
-function fmtApprox(nowIso: string, endsAtIso: string): string {
-  const min = Math.round((new Date(endsAtIso).getTime() - new Date(nowIso).getTime()) / 60_000);
-  if (min < 60) return `~${min} min`;
+function fmtDuration(min: number): string {
+  if (min < 60) return `${min} min`;
   const h = Math.floor(min / 60);
   const m = min % 60;
-  return m === 0 ? `~${h}h` : `~${h}h ${m}m`;
+  return m === 0 ? `${h}hr` : `${h}hr ${m}m`;
 }
 
 function fmtTime(iso: string, timeZone: string): string {
@@ -191,11 +190,11 @@ export function BookingSheet({ visible, slug, timeZone, theme, onClose }: Props)
                           alignItems:      'center', gap: '4px',
                         }}
                       >
-                        <span style={{ fontSize: '20px', fontWeight: 700 }}>
-                          Until {fmtTime(slot.endsAt, timeZone)}
+                        <span style={{ fontSize: '22px', fontWeight: 600 }}>
+                          {fmtDuration(slot.minutes)}
                         </span>
-                        <span style={{ fontSize: '13px', fontWeight: 400, opacity: 0.75 }}>
-                          {fmtApprox(durations.now, slot.endsAt)}
+                        <span style={{ fontSize: '12px', fontWeight: 400, opacity: 0.7 }}>
+                          ends {fmtTime(slot.endsAt, timeZone)}
                         </span>
                       </button>
                     ))}
