@@ -15,6 +15,7 @@ export function ThemePage() {
   const [draft,          setDraft]          = useState<Theme | null>(null);
   const [saving,         setSaving]         = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingLogo,  setUploadingLogo]  = useState(false);
   const [savedMsg,       setSavedMsg]       = useState(false);
   const [error,          setError]          = useState<string | null>(null);
 
@@ -27,16 +28,21 @@ export function ThemePage() {
     setDraft((d) => d ? { ...d, ...updates } : null);
   };
 
-  const handleUploadImage = async (file: File) => {
-    setUploadingImage(true);
+  const handleUploadImage = async (file: File, target: 'background' | 'logo') => {
+    const setUploading = target === 'logo' ? setUploadingLogo : setUploadingImage;
+    setUploading(true);
     setError(null);
     try {
       const result = await api.uploadImage(file);
-      setDraft((d) => d ? { ...d, defaultBackgroundImagePath: result.path } : null);
+      if (target === 'logo') {
+        setDraft((d) => d ? { ...d, logoImagePath: result.path } : null);
+      } else {
+        setDraft((d) => d ? { ...d, defaultBackgroundImagePath: result.path } : null);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Upload failed.');
     } finally {
-      setUploadingImage(false);
+      setUploading(false);
     }
   };
 
@@ -101,6 +107,7 @@ export function ThemePage() {
           onChange={handleChange}
           onUploadImage={handleUploadImage}
           uploadingImage={uploadingImage}
+          uploadingLogo={uploadingLogo}
           saving={saving}
           onSave={handleSave}
         />

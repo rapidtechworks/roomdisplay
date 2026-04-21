@@ -185,18 +185,20 @@ const WEIGHT_OPTIONS = [
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export interface ThemeEditorProps {
-  value:           Theme;
-  onChange:        (updates: Partial<Theme>) => void;
-  onUploadImage:   (file: File) => Promise<void>;
-  uploadingImage:  boolean;
-  saving:          boolean;
-  onSave:          () => void;
+  value:            Theme;
+  onChange:         (updates: Partial<Theme>) => void;
+  onUploadImage:    (file: File, target: 'background' | 'logo') => Promise<void>;
+  uploadingImage:   boolean;
+  uploadingLogo:    boolean;
+  saving:           boolean;
+  onSave:           () => void;
 }
 
 export function ThemeEditor({
-  value, onChange, onUploadImage, uploadingImage, saving, onSave,
+  value, onChange, onUploadImage, uploadingImage, uploadingLogo, saving, onSave,
 }: ThemeEditorProps) {
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef     = useRef<HTMLInputElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof Theme>(key: K, val: Theme[K]) => onChange({ [key]: val } as Partial<Theme>);
 
   return (
@@ -243,7 +245,7 @@ export function ThemeEditor({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) void onUploadImage(f);
+                if (f) void onUploadImage(f, 'background');
                 e.target.value = '';
               }}
             />
@@ -270,12 +272,17 @@ export function ThemeEditor({
           </Field>
         )}
 
-        <TextField
-          label="Overlay gradient (CSS)"
-          value={value.backgroundOverlayGradient}
-          onChange={(v) => set('backgroundOverlayGradient', v)}
-          placeholder="linear-gradient(…)"
-          wide
+        {/* Scrim */}
+        <ColorField
+          label="Image scrim colour"
+          value={value.scrimColor}
+          onChange={(v) => set('scrimColor', v)}
+        />
+        <RangeField
+          label="Scrim opacity"
+          value={value.scrimOpacity}
+          onChange={(v) => set('scrimOpacity', v)}
+          min={0} max={0.95} step={0.05}
         />
       </Section>
 
@@ -491,6 +498,91 @@ export function ThemeEditor({
           label="Text colour"
           value={value.offlineBannerTextColor}
           onChange={(v) => set('offlineBannerTextColor', v)}
+        />
+      </Section>
+
+      {/* ── Logo ─────────────────────────────────────────────────────────────── */}
+      <Section title="Logo">
+        {/* Upload */}
+        <Field label="Logo image — upload from computer" wide>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={uploadingLogo}
+              onClick={() => logoFileRef.current?.click()}
+              className="btn-secondary text-sm disabled:opacity-50"
+            >
+              {uploadingLogo ? 'Uploading…' : 'Choose file…'}
+            </button>
+            {value.logoImagePath && (
+              <span className="font-mono text-xs text-gray-400 truncate max-w-[220px]">
+                {value.logoImagePath}
+              </span>
+            )}
+            {value.logoImagePath && (
+              <button
+                type="button"
+                onClick={() => set('logoImagePath', null)}
+                className="text-xs text-red-400 hover:text-red-300"
+              >
+                Remove
+              </button>
+            )}
+            <input
+              ref={logoFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onUploadImage(f, 'logo');
+                e.target.value = '';
+              }}
+            />
+          </div>
+        </Field>
+
+        {/* External URL */}
+        <TextField
+          label="Logo image — external URL (overrides upload)"
+          value={value.logoImageUrl ?? ''}
+          onChange={(v) => set('logoImageUrl', v || null)}
+          placeholder="https://…"
+          wide
+        />
+
+        {/* Preview */}
+        {(value.logoImageUrl || value.logoImagePath) && (
+          <Field label="Preview" wide>
+            <img
+              src={value.logoImageUrl ?? value.logoImagePath ?? ''}
+              alt="Logo preview"
+              className="h-16 rounded-lg object-contain bg-gray-800 p-2"
+            />
+          </Field>
+        )}
+
+        {/* Position */}
+        <SelectField
+          label="Position"
+          value={value.logoPosition}
+          onChange={(v) => set('logoPosition', v)}
+          options={[
+            { label: 'None (hidden)',           value: 'none' },
+            { label: 'Beside Book Now button',  value: 'beside-book-now' },
+            { label: 'Top left corner',         value: 'top-left' },
+            { label: 'Top right corner',        value: 'top-right' },
+            { label: 'Bottom left corner',      value: 'bottom-left' },
+            { label: 'Bottom right corner',     value: 'bottom-right' },
+          ]}
+        />
+
+        {/* Max height */}
+        <TextField
+          label="Max height (CSS)"
+          value={value.logoMaxHeight}
+          onChange={(v) => set('logoMaxHeight', v)}
+          placeholder="80px"
         />
       </Section>
 

@@ -87,6 +87,33 @@ export function RoomDisplay({ slug }: Props) {
 
   const { theme }: { theme: Theme } = state;
 
+  // ── Scrim overlay ────────────────────────────────────────────────────────────
+  // Convert hex scrimColor + scrimOpacity into a CSS rgba background.
+  // Falls back gracefully if the stored colour isn't a plain hex.
+  function hexToRgb(hex: string): string {
+    const clean = hex.replace('#', '');
+    const full  = clean.length === 3
+      ? clean.split('').map((c) => c + c).join('')
+      : clean;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    return isNaN(r) ? '0,0,0' : `${r},${g},${b}`;
+  }
+  const scrimCss = `rgba(${hexToRgb(theme.scrimColor)},${theme.scrimOpacity})`;
+
+  // ── Logo ─────────────────────────────────────────────────────────────────────
+  const logoSrc = theme.logoImageUrl ?? theme.logoImagePath ?? null;
+  const CORNER_CLASSES: Record<string, string> = {
+    'top-left':     'top-0 left-0 p-6',
+    'top-right':    'top-0 right-0 p-6',
+    'bottom-left':  'bottom-0 left-0 p-6',
+    'bottom-right': 'bottom-0 right-0 p-6',
+  };
+  const cornerClass = theme.logoPosition !== 'none' && theme.logoPosition !== 'beside-book-now'
+    ? CORNER_CLASSES[theme.logoPosition]
+    : null;
+
   return (
     <div className="relative h-screen w-screen overflow-hidden">
 
@@ -106,11 +133,19 @@ export function RoomDisplay({ slug }: Props) {
         />
       )}
 
-      {/* Gradient overlay */}
-      <div
-        className="absolute inset-0 -z-10"
-        style={{ background: theme.backgroundOverlayGradient }}
-      />
+      {/* Scrim overlay */}
+      <div className="absolute inset-0 -z-10" style={{ backgroundColor: scrimCss }} />
+
+      {/* Corner logo */}
+      {logoSrc && cornerClass && (
+        <div className={`absolute z-30 ${cornerClass}`}>
+          <img
+            src={logoSrc}
+            alt="Logo"
+            style={{ maxHeight: theme.logoMaxHeight, objectFit: 'contain' }}
+          />
+        </div>
+      )}
 
       {/* Tablet ID badge — bottom-right corner, for admin identification */}
       {shortId && (
@@ -148,6 +183,9 @@ export function RoomDisplay({ slug }: Props) {
               minutesRemaining={derived.minutesRemaining}
               theme={theme}
               onBook={() => setShowBooking(true)}
+              logo={theme.logoPosition === 'beside-book-now' && logoSrc
+                ? { src: logoSrc, maxHeight: theme.logoMaxHeight }
+                : null}
             />
           )}
         </div>

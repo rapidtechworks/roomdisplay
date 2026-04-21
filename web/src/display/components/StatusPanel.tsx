@@ -1,6 +1,11 @@
 import type { Theme, CachedEvent } from '@roomdisplay/shared';
 import type { RoomStatus } from '../RoomDisplay.tsx';
 
+interface LogoProp {
+  src:       string;
+  maxHeight: string;
+}
+
 interface Props {
   roomName:         string;
   timeZone:         string;
@@ -11,6 +16,7 @@ interface Props {
   minutesRemaining: number | null;
   theme:            Theme;
   onBook:           () => void;
+  logo:             LogoProp | null;
 }
 
 function fmtClock(date: Date, timeZone: string): string {
@@ -39,7 +45,7 @@ function statusColor(status: RoomStatus, theme: Theme): string {
 
 export function StatusPanel({
   roomName, timeZone, now, status, currentEvent,
-  availableUntil, minutesRemaining, theme, onBook,
+  availableUntil, minutesRemaining, theme, onBook, logo,
 }: Props) {
   const color   = statusColor(status, theme);
   const canBook = status === 'available' || status === 'ending-soon';
@@ -137,8 +143,8 @@ export function StatusPanel({
         )}
       </div>
 
-      {/* Book Now button */}
-      <div>
+      {/* Book Now button + beside-book-now logo */}
+      <div className="flex items-center gap-6">
         {canBook && (
           <button
             onClick={onBook}
@@ -159,6 +165,13 @@ export function StatusPanel({
           >
             Book Now
           </button>
+        )}
+        {logo && (
+          <img
+            src={logo.src}
+            alt="Logo"
+            style={{ maxHeight: logo.maxHeight, objectFit: 'contain' }}
+          />
         )}
       </div>
     </div>

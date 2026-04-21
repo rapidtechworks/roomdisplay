@@ -25,6 +25,7 @@ export function RoomThemePage() {
   const [draft,          setDraft]          = useState<Theme | null>(null);
   const [saving,         setSaving]         = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingLogo,  setUploadingLogo]  = useState(false);
   const [savedMsg,       setSavedMsg]       = useState(false);
   const [enabling,       setEnabling]       = useState(false);
   const [disabling,      setDisabling]      = useState(false);
@@ -39,16 +40,21 @@ export function RoomThemePage() {
     setDraft((d) => d ? { ...d, ...updates } : null);
   };
 
-  const handleUploadImage = async (file: File) => {
-    setUploadingImage(true);
+  const handleUploadImage = async (file: File, target: 'background' | 'logo') => {
+    const setUploading = target === 'logo' ? setUploadingLogo : setUploadingImage;
+    setUploading(true);
     setError(null);
     try {
       const result = await api.uploadImage(file);
-      setDraft((d) => d ? { ...d, defaultBackgroundImagePath: result.path } : null);
+      if (target === 'logo') {
+        setDraft((d) => d ? { ...d, logoImagePath: result.path } : null);
+      } else {
+        setDraft((d) => d ? { ...d, defaultBackgroundImagePath: result.path } : null);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Upload failed.');
     } finally {
-      setUploadingImage(false);
+      setUploading(false);
     }
   };
 
@@ -178,6 +184,7 @@ export function RoomThemePage() {
             onChange={handleChange}
             onUploadImage={handleUploadImage}
             uploadingImage={uploadingImage}
+            uploadingLogo={uploadingLogo}
             saving={saving}
             onSave={handleSave}
           />

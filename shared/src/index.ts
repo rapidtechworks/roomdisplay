@@ -50,7 +50,9 @@ export interface Theme {
 
   // Background treatment
   backgroundColor: string;            // solid colour shown behind the image
-  backgroundOverlayGradient: string;  // CSS gradient layered over the image
+  backgroundOverlayGradient: string;  // kept for backward compat; use scrimColor+scrimOpacity instead
+  scrimColor: string;                 // hex colour of the overlay scrim (usually #000000)
+  scrimOpacity: number;               // 0–1 opacity of the scrim over the background image
   defaultBackgroundImagePath: string; // server-stored upload path (e.g. /uploads/…)
   backgroundImageUrl: string | null;  // external URL (takes priority over path)
 
@@ -101,7 +103,8 @@ export interface Theme {
 
   // Logo
   logoImagePath: string | null;
-  logoPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'none';
+  logoImageUrl: string | null;        // external URL (takes priority over path)
+  logoPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'beside-book-now' | 'none';
   logoMaxHeight: string;
 }
 
@@ -112,6 +115,8 @@ export const DEFAULT_THEME: Theme = {
 
   backgroundColor: '#0f172a',
   backgroundOverlayGradient: 'linear-gradient(135deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%)',
+  scrimColor: '#000000',
+  scrimOpacity: 0.25,
   defaultBackgroundImagePath: '/defaults/bg-neutral.jpg',
   backgroundImageUrl: null,
 
@@ -153,6 +158,7 @@ export const DEFAULT_THEME: Theme = {
   offlineBannerTextColor: '#1F2937',
 
   logoImagePath: null,
+  logoImageUrl: null,
   logoPosition: 'none',
   logoMaxHeight: '80px',
 };
