@@ -178,6 +178,56 @@ function toHex(val: string): string {
   return '#000000';
 }
 
+// ─── Theme presets (colour/appearance only — never touches fonts or sizes) ─────
+
+const COLOR_PRESET_DARK: Partial<Theme> = {
+  backgroundColor:          '#0f172a',
+  scrimColor:               '#000000',
+  scrimOpacity:             0.25,
+  glassPanelTint:           'rgba(255, 255, 255, 0.14)',
+  glassPanelBorderColor:    'rgba(255, 255, 255, 0.2)',
+  roomNameColor:            '#FFFFFF',
+  roomNameTextShadow:       '0 2px 16px rgba(0,0,0,0.3)',
+  clockColor:               '#FFFFFF',
+  clockOpacity:             0.65,
+  eventColor:               '#FFFFFF',
+  accentColorAvailable:     '#34D399',
+  accentColorBusy:          '#F87171',
+  accentColorEndingSoon:    '#FBBF24',
+  accentColorBookButton:    '#3B82F6',
+  bookButtonTextColor:      '#FFFFFF',
+  agendaDayHeaderColor:     'rgba(255, 255, 255, 0.85)',
+  agendaEventColor:         'rgba(255, 255, 255, 0.95)',
+  agendaMutedColor:         'rgba(255, 255, 255, 0.5)',
+  agendaEventItemBackground:'rgba(255,255,255,0.07)',
+  offlineBannerBackground:  'rgba(251, 191, 36, 0.92)',
+  offlineBannerTextColor:   '#1F2937',
+};
+
+const COLOR_PRESET_LIGHT: Partial<Theme> = {
+  backgroundColor:          '#F1F5F9',
+  scrimColor:               '#FFFFFF',
+  scrimOpacity:             0.45,
+  glassPanelTint:           'rgba(0, 0, 0, 0.05)',
+  glassPanelBorderColor:    'rgba(0, 0, 0, 0.12)',
+  roomNameColor:            '#0F172A',
+  roomNameTextShadow:       '0 1px 6px rgba(255,255,255,0.6)',
+  clockColor:               '#334155',
+  clockOpacity:             0.75,
+  eventColor:               '#1E293B',
+  accentColorAvailable:     '#059669',
+  accentColorBusy:          '#DC2626',
+  accentColorEndingSoon:    '#D97706',
+  accentColorBookButton:    '#2563EB',
+  bookButtonTextColor:      '#FFFFFF',
+  agendaDayHeaderColor:     'rgba(15, 23, 42, 0.85)',
+  agendaEventColor:         'rgba(15, 23, 42, 0.9)',
+  agendaMutedColor:         'rgba(15, 23, 42, 0.5)',
+  agendaEventItemBackground:'rgba(0, 0, 0, 0.05)',
+  offlineBannerBackground:  'rgba(251, 191, 36, 0.92)',
+  offlineBannerTextColor:   '#1F2937',
+};
+
 const WEIGHT_OPTIONS = [
   { label: 'Light (300)',      value: 300 },
   { label: 'Regular (400)',    value: 400 },
@@ -211,6 +261,32 @@ export function ThemeEditor({
 
   return (
     <div>
+
+      {/* ══ 0. PRESETS ═══════════════════════════════════════════════════════════ */}
+      <div className="mb-6 rounded-xl border border-gray-800 bg-gray-900 px-5 py-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
+          Colour Presets
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => onChange(COLOR_PRESET_DARK)}
+            className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:border-indigo-500 hover:text-white transition-colors"
+          >
+            <span>🌙</span> Dark
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange(COLOR_PRESET_LIGHT)}
+            className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:border-indigo-500 hover:text-white transition-colors"
+          >
+            <span>☀️</span> Light
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          Applies colour defaults only — fonts, sizes, and logo are unchanged.
+        </p>
+      </div>
 
       {/* ══ 1. BACKGROUND ════════════════════════════════════════════════════════ */}
       <Section title="Background">
