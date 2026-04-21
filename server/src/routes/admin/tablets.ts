@@ -103,4 +103,28 @@ export async function registerTabletsRoutes(server: FastifyInstance) {
       return reply.send({ ok: true });
     },
   );
+
+  // ── DELETE /api/admin/tablets/:uuid ───────────────────────────────────────
+  server.delete<{ Params: { uuid: string } }>(
+    '/api/admin/tablets/:uuid',
+    authCsrf,
+    async (request, reply) => {
+      const { uuid } = request.params;
+
+      const tablet = await db
+        .selectFrom('tablets')
+        .select('tablet_uuid')
+        .where('tablet_uuid', '=', uuid)
+        .executeTakeFirst();
+
+      if (!tablet) {
+        return reply.code(404).send({ error: 'not_found', message: 'Tablet not found' });
+      }
+
+      await db.deleteFrom('tablets').where('tablet_uuid', '=', uuid).execute();
+      server.log.info({ tabletUuid: uuid }, 'Tablet decommissioned');
+
+      return reply.send({ ok: true });
+    },
+  );
 }

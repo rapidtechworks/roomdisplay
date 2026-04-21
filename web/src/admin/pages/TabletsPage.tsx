@@ -109,7 +109,8 @@ export function TabletsPage() {
     refetchInterval: 15_000,
   });
 
-  const [labelError, setLabelError] = useState<string | null>(null);
+  const [labelError, setLabelError]       = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const updateLabel = useMutation({
     mutationFn: ({ uuid, label }: { uuid: string; label: string | null }) =>
@@ -135,6 +136,14 @@ export function TabletsPage() {
   const handleSaveLabel = (uuid: string, label: string | null) => {
     updateLabel.mutate({ uuid, label });
   };
+
+  const deleteTablet = useMutation({
+    mutationFn: (uuid: string) => api.deleteTablet(uuid),
+    onSuccess: () => {
+      setConfirmDelete(null);
+      void qc.invalidateQueries({ queryKey: ['tablets'] });
+    },
+  });
 
   // ── Loading / error states ─────────────────────────────────────────────────
 
@@ -213,6 +222,7 @@ export function TabletsPage() {
               <th className="px-4 py-3 font-medium text-gray-400">Room</th>
               <th className="px-4 py-3 font-medium text-gray-400">Last Seen</th>
               <th className="px-4 py-3 font-medium text-gray-400">IP</th>
+              <th className="px-4 py-3 font-medium text-gray-400"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
@@ -273,6 +283,37 @@ export function TabletsPage() {
                   <span className="font-mono text-xs text-gray-500">
                     {tablet.lastIp ?? '—'}
                   </span>
+                </td>
+
+                {/* Delete — offline only */}
+                <td className="px-4 py-3 text-right">
+                  {!tablet.online && (
+                    confirmDelete === tablet.tabletUuid ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-xs text-gray-400">Remove?</span>
+                        <button
+                          onClick={() => deleteTablet.mutate(tablet.tabletUuid)}
+                          disabled={deleteTablet.isPending}
+                          className="rounded px-2 py-1 text-xs bg-red-700 hover:bg-red-600 text-white disabled:opacity-50"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(null)}
+                          className="rounded px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDelete(tablet.tabletUuid)}
+                        className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-800 hover:text-red-400 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    )
+                  )}
                 </td>
               </tr>
             ))}

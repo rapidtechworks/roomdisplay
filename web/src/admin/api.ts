@@ -187,7 +187,8 @@ export const api = {
   deleteWalkUp:  (roomId: number, walkupId: number) => call<{ ok: boolean }>('DELETE', `/api/admin/rooms/${roomId}/walkups/${walkupId}`),
 
   // Tablets
-  getTablets:   ()                                   => call<Tablet[]>('GET',   '/api/admin/tablets'),
-  updateTablet: (uuid: string, data: { label?: string | null; assignedRoomId?: number | null }) =>
-    call<{ ok: boolean }>('PATCH', `/api/admin/tablets/${uuid}`, data),
+  getTablets:    ()                                   => call<Tablet[]>('GET',    '/api/admin/tablets'),
+  updateTablet:  (uuid: string, data: { label?: string | null; assignedRoomId?: number | null }) =>
+    call<{ ok: boolean }>('PATCH',  `/api/admin/tablets/${uuid}`, data),
+  deleteTablet:  (uuid: string)                       => call<{ ok: boolean }>('DELETE', `/api/admin/tablets/${uuid}`),
 };
