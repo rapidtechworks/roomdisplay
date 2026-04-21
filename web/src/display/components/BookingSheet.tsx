@@ -89,6 +89,7 @@ export function BookingSheet({ visible, slug, timeZone, theme, onClose }: Props)
     backdropFilter:       `blur(${theme.glassPanelBlur}px)`,
     WebkitBackdropFilter: `blur(${theme.glassPanelBlur}px)`,
     borderColor:          theme.glassPanelBorderColor,
+    boxShadow:            theme.glassPanelShadow,
   };
 
   return (

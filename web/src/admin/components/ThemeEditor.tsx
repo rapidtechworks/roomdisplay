@@ -186,6 +186,7 @@ const COLOR_PRESET_DARK: Partial<Theme> = {
   scrimOpacity:             0.25,
   glassPanelTint:           'rgba(255, 255, 255, 0.14)',
   glassPanelBorderColor:    'rgba(255, 255, 255, 0.2)',
+  glassPanelShadow:         '8px 12px 40px rgba(0,0,0,0.45)',
   roomNameColor:            '#FFFFFF',
   roomNameTextShadow:       '0 2px 16px rgba(0,0,0,0.3)',
   clockColor:               '#FFFFFF',
@@ -202,6 +203,7 @@ const COLOR_PRESET_DARK: Partial<Theme> = {
   agendaEventItemBackground:'rgba(255,255,255,0.07)',
   offlineBannerBackground:  'rgba(251, 191, 36, 0.92)',
   offlineBannerTextColor:   '#1F2937',
+  statusTextShadow:         '3px 4px 24px rgba(0,0,0,0.5)',
 };
 
 const COLOR_PRESET_LIGHT: Partial<Theme> = {
@@ -210,6 +212,7 @@ const COLOR_PRESET_LIGHT: Partial<Theme> = {
   scrimOpacity:             0.45,
   glassPanelTint:           'rgba(0, 0, 0, 0.05)',
   glassPanelBorderColor:    'rgba(0, 0, 0, 0.12)',
+  glassPanelShadow:         '8px 12px 40px rgba(0,0,0,0.18)',
   roomNameColor:            '#0F172A',
   roomNameTextShadow:       '0 1px 6px rgba(255,255,255,0.6)',
   clockColor:               '#334155',
@@ -226,6 +229,7 @@ const COLOR_PRESET_LIGHT: Partial<Theme> = {
   agendaEventItemBackground:'rgba(0, 0, 0, 0.05)',
   offlineBannerBackground:  'rgba(251, 191, 36, 0.92)',
   offlineBannerTextColor:   '#1F2937',
+  statusTextShadow:         '3px 4px 20px rgba(255,255,255,0.25)',
 };
 
 const WEIGHT_OPTIONS = [
@@ -568,6 +572,13 @@ export function ThemeEditor({
                 onChange={(v) => set('statusFontWeight', v)}
                 options={WEIGHT_OPTIONS}
               />
+              <TextField
+                label="Text shadow (CSS)"
+                value={value.statusTextShadow}
+                onChange={(v) => set('statusTextShadow', v)}
+                placeholder="3px 4px 24px rgba(0,0,0,0.5)"
+                wide
+              />
             </CollapseSection>
 
             {/* Current event */}
@@ -642,6 +653,13 @@ export function ThemeEditor({
                 label="Panel border colour"
                 value={value.glassPanelBorderColor}
                 onChange={(v) => set('glassPanelBorderColor', v)}
+                wide
+              />
+              <TextField
+                label="Panel &amp; button drop shadow (CSS)"
+                value={value.glassPanelShadow}
+                onChange={(v) => set('glassPanelShadow', v)}
+                placeholder="8px 12px 40px rgba(0,0,0,0.45)"
                 wide
               />
               <ColorField

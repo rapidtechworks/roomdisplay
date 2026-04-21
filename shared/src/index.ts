@@ -47,6 +47,7 @@ export interface Theme {
   glassPanelTint: string;
   glassPanelBlur: number;
   glassPanelBorderColor: string;
+  glassPanelShadow: string;  // box-shadow applied to panels + buttons for the "floating" effect
 
   // Background treatment
   backgroundColor: string;            // solid colour shown behind the image
@@ -78,6 +79,7 @@ export interface Theme {
   // Typography — status word
   statusFontSize: string;
   statusFontWeight: number;
+  statusTextShadow: string;
 
   // Colors
   accentColorAvailable: string;
@@ -112,6 +114,7 @@ export const DEFAULT_THEME: Theme = {
   glassPanelTint: 'rgba(255, 255, 255, 0.14)',
   glassPanelBlur: 24,
   glassPanelBorderColor: 'rgba(255, 255, 255, 0.2)',
+  glassPanelShadow: '8px 12px 40px rgba(0,0,0,0.45)',
 
   backgroundColor: '#0f172a',
   backgroundOverlayGradient: 'linear-gradient(135deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%)',
@@ -138,6 +141,7 @@ export const DEFAULT_THEME: Theme = {
 
   statusFontSize: '120px',
   statusFontWeight: 500,
+  statusTextShadow: '3px 4px 24px rgba(0,0,0,0.5)',
 
   accentColorAvailable: '#34D399',
   accentColorBusy: '#F87171',

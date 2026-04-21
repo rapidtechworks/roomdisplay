@@ -69,6 +69,7 @@ export function AgendaPanel({ events, timeZone, now, theme }: Props) {
         backdropFilter:       `blur(${theme.glassPanelBlur}px)`,
         WebkitBackdropFilter: `blur(${theme.glassPanelBlur}px)`,
         borderColor:          theme.glassPanelBorderColor,
+        boxShadow:            theme.glassPanelShadow,
       }}
     >
       <div className="overflow-y-auto p-5">

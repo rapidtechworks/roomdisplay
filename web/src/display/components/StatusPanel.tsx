@@ -89,6 +89,7 @@ export function StatusPanel({
           fontWeight: theme.statusFontWeight,
           color,
           lineHeight: 1,
+          textShadow: theme.statusTextShadow,
         }}>
           {statusLabel(status)}
         </p>
@@ -159,6 +160,7 @@ export function StatusPanel({
               border:          'none',
               cursor:          'pointer',
               transition:      'opacity 0.15s',
+              boxShadow:       theme.glassPanelShadow,
             }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
             onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
