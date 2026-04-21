@@ -3,6 +3,15 @@
  * Handles CSRF tokens, session cookies, and JSON parsing.
  */
 
+// ─── Unauthorized handler ─────────────────────────────────────────────────────
+// Called whenever any API request returns 401 so the UI can redirect to login.
+
+let _onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: () => void): void {
+  _onUnauthorized = fn;
+}
+
 // ─── CSRF token management ────────────────────────────────────────────────────
 
 let _csrfToken: string | null = null;
@@ -64,6 +73,10 @@ async function call<T>(method: Method, path: string, body?: unknown): Promise<T>
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      clearCsrfToken();
+      _onUnauthorized?.();
+    }
     let code = 'unknown_error';
     let message = `HTTP ${res.status}`;
     try {

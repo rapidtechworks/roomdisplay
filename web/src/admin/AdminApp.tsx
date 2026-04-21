@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './store.ts';
+import { setUnauthorizedHandler, clearCsrfToken } from './api.ts';
 import { Layout } from './components/Layout.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { DashboardPage } from './pages/DashboardPage.tsx';
@@ -29,6 +30,14 @@ function AdminRoutes() {
   const { loggedIn, initialized, checkAuth } = useAuthStore();
 
   useEffect(() => { void checkAuth(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Redirect to login automatically when any API call returns 401
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      clearCsrfToken();
+      useAuthStore.setState({ loggedIn: false });
+    });
+  }, []);
 
   if (!initialized) {
     return (
