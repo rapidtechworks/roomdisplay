@@ -100,6 +100,7 @@ export function useRoomSocket(slug: string) {
 
   useEffect(() => {
     alive.current = true;
+    void fetchState(); // Load state immediately via REST so display shows before WS connects
     connect();
     return () => {
       alive.current = false;
@@ -107,7 +108,7 @@ export function useRoomSocket(slug: string) {
       if (retryRef.current) clearTimeout(retryRef.current);
       stopPoll();
     };
-  }, [connect, stopPoll]);
+  }, [connect, stopPoll, fetchState]);
 
   return { state, connected };
 }
