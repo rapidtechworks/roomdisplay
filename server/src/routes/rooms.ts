@@ -58,6 +58,20 @@ setInterval(() => {
 
 export async function registerRoomRoutes(server: FastifyInstance) {
 
+  // ── GET /api/rooms ─────────────────────────────────────────────────────────
+  // Public — used by the room picker landing page
+  server.get('/api/rooms', async (_request, reply) => {
+    const rooms = await db
+      .selectFrom('rooms')
+      .select(['slug', 'display_name'])
+      .orderBy('display_name', 'asc')
+      .execute();
+
+    return reply.send(
+      rooms.map((r) => ({ slug: r.slug, displayName: r.display_name })),
+    );
+  });
+
   // ── GET /api/rooms/:slug/state ─────────────────────────────────────────────
   server.get<{ Params: { slug: string } }>(
     '/api/rooms/:slug/state',
