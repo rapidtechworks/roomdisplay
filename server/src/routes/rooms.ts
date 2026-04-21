@@ -10,16 +10,21 @@ import type {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DURATIONS = [15, 30, 45, 60, 90, 120] as const;
+const DURATIONS       = [15, 30, 45, 60, 90, 120] as const;
+const ROUND_TO_MIN    = 10;
+const ROUND_TO_MS     = ROUND_TO_MIN * 60 * 1_000;
+const MAX_BOOKING_MS  = 4 * 60 * 60 * 1_000; // 4 hours absolute ceiling
+
+/** Round a timestamp (ms) to the nearest ROUND_TO_MIN boundary. */
+function snapToGrid(ms: number): number {
+  return Math.round(ms / ROUND_TO_MS) * ROUND_TO_MS;
+}
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const createBookingSchema = z.object({
-  title:           z.string().min(1).max(100).optional(),
-  durationMinutes: z.number().int().refine(
-    (d) => (DURATIONS as readonly number[]).includes(d),
-    { message: `Duration must be one of: ${DURATIONS.join(', ')}` },
-  ),
+  title:  z.string().min(1).max(100).optional(),
+  endsAt: z.string().datetime({ message: 'endsAt must be a UTC ISO-8601 datetime' }),
 });
 
 // ─── Walk-up rate limiter ─────────────────────────────────────────────────────
@@ -122,21 +127,27 @@ export async function registerRoomRoutes(server: FastifyInstance) {
       // First event that starts strictly in the future
       const nextEventRow = upcoming.find((e) => e.starts_at > nowIso) ?? null;
 
-      const availableDurations: number[] = [];
+      const availableSlots: AvailableDurationsResponse['availableSlots'] = [];
 
       if (!occupied) {
         for (const dur of DURATIONS) {
-          const proposedEnd = new Date(now.getTime() + dur * 60 * 1000).toISOString();
+          const rawEndMs    = now.getTime() + dur * 60 * 1_000;
+          const snappedMs   = snapToGrid(rawEndMs);
+          const snappedIso  = new Date(snappedMs).toISOString();
+
+          // Skip if snapping pushed the end before or at now (edge case: very short dur + late in interval)
+          if (snappedMs <= now.getTime()) continue;
+
           const overlaps = upcoming.some(
-            (e) => e.starts_at < proposedEnd && e.ends_at > nowIso,
+            (e) => e.starts_at < snappedIso && e.ends_at > nowIso,
           );
-          if (!overlaps) availableDurations.push(dur);
+          if (!overlaps) availableSlots.push({ minutes: dur, endsAt: snappedIso });
         }
       }
 
       const response: AvailableDurationsResponse = {
-        now:                nowIso,
-        availableDurations,
+        now:            nowIso,
+        availableSlots,
         nextEvent: nextEventRow
           ? { title: nextEventRow.title, startsAt: nextEventRow.starts_at }
           : null,
@@ -181,11 +192,21 @@ export async function registerRoomRoutes(server: FastifyInstance) {
         });
       }
 
-      const { durationMinutes, title } = parsed.data;
+      const { endsAt, title } = parsed.data;
       const bookingTitle = title?.trim() || 'Walk-up Booking';
       const now          = new Date();
+      const nowMs        = now.getTime();
       const startsIso    = now.toISOString();
-      const endsIso      = new Date(now.getTime() + durationMinutes * 60 * 1000).toISOString();
+
+      // Re-snap on the server (defence in depth) and validate bounds
+      const snappedEndsMs = snapToGrid(new Date(endsAt).getTime());
+      if (snappedEndsMs <= nowMs) {
+        return reply.code(400).send({ error: 'invalid_request', message: 'End time must be in the future.' });
+      }
+      if (snappedEndsMs > nowMs + MAX_BOOKING_MS) {
+        return reply.code(400).send({ error: 'invalid_request', message: 'Booking cannot exceed 4 hours.' });
+      }
+      const endsIso = new Date(snappedEndsMs).toISOString();
 
       type OverlapError = Error & { code: 'OVERLAP' };
 
@@ -234,7 +255,7 @@ export async function registerRoomRoutes(server: FastifyInstance) {
         throw err;
       }
 
-      server.log.info({ roomId: room.id, walkupId, durationMinutes, ip }, 'Walk-up booking created');
+      server.log.info({ roomId: room.id, walkupId, endsIso, ip }, 'Walk-up booking created');
 
       // Push updated state to all subscribed tablets immediately
       pushRoomState(slug).catch((err: unknown) => {

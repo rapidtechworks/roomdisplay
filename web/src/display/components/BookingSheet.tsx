@@ -2,10 +2,15 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Theme } from '@roomdisplay/shared';
 
+interface BookingSlot {
+  minutes: number;
+  endsAt:  string;
+}
+
 interface DurationsResponse {
-  now:                string;
-  availableDurations: number[];
-  nextEvent:          { title: string; startsAt: string } | null;
+  now:            string;
+  availableSlots: BookingSlot[];
+  nextEvent:      { title: string; startsAt: string } | null;
 }
 
 interface Props {
@@ -18,11 +23,12 @@ interface Props {
 
 type Stage = 'loading' | 'picking' | 'none' | 'submitting' | 'success' | 'error';
 
-function fmtDuration(min: number): string {
-  if (min < 60) return `${min} min`;
+function fmtApprox(nowIso: string, endsAtIso: string): string {
+  const min = Math.round((new Date(endsAtIso).getTime() - new Date(nowIso).getTime()) / 60_000);
+  if (min < 60) return `~${min} min`;
   const h = Math.floor(min / 60);
   const m = min % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  return m === 0 ? `~${h}h` : `~${h}h ${m}m`;
 }
 
 function fmtTime(iso: string, timeZone: string): string {
@@ -51,15 +57,15 @@ export function BookingSheet({ visible, slug, timeZone, theme, onClose }: Props)
       .then((r) => r.json() as Promise<DurationsResponse>)
       .then((d) => {
         setDurations(d);
-        setStage(d.availableDurations.length > 0 ? 'picking' : 'none');
+        setStage(d.availableSlots.length > 0 ? 'picking' : 'none');
       })
       .catch(() => { setStage('error'); setErrorMsg('Could not check availability.'); });
   }, [visible, slug, fetchKey]);
 
-  const book = async (durationMinutes: number) => {
+  const book = async (endsAt: string) => {
     setStage('submitting');
     try {
-      const body: Record<string, unknown> = { durationMinutes };
+      const body: Record<string, unknown> = { endsAt };
       if (title.trim()) body['title'] = title.trim();
 
       const res = await fetch(`/api/rooms/${slug}/bookings`, {
@@ -170,21 +176,27 @@ export function BookingSheet({ visible, slug, timeZone, theme, onClose }: Props)
                   </p>
 
                   <div className="grid grid-cols-3 gap-3">
-                    {durations.availableDurations.map((dur) => (
+                    {durations.availableSlots.map((slot) => (
                       <button
-                        key={dur}
-                        onClick={() => void book(dur)}
+                        key={slot.endsAt}
+                        onClick={() => void book(slot.endsAt)}
                         style={{
                           borderRadius:    theme.buttonBorderRadius,
                           backgroundColor: theme.accentColorBookButton,
                           color:           theme.bookButtonTextColor,
-                          fontSize:        '22px', fontWeight: 600,
                           fontFamily:      theme.roomNameFontFamily,
-                          padding:         '18px 12px',
+                          padding:         '16px 12px',
                           border:          'none', cursor: 'pointer',
+                          display:         'flex', flexDirection: 'column',
+                          alignItems:      'center', gap: '4px',
                         }}
                       >
-                        {fmtDuration(dur)}
+                        <span style={{ fontSize: '20px', fontWeight: 700 }}>
+                          Until {fmtTime(slot.endsAt, timeZone)}
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: 400, opacity: 0.75 }}>
+                          {fmtApprox(durations.now, slot.endsAt)}
+                        </span>
                       </button>
                     ))}
                   </div>

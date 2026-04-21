@@ -178,15 +178,20 @@ export type WsServerMessage =
 
 // ─── API shapes ───────────────────────────────────────────────────────────────
 
+export interface BookingSlot {
+  minutes: number; // approximate duration (for display only)
+  endsAt:  string; // UTC ISO-8601 — clean rounded end time
+}
+
 export interface AvailableDurationsResponse {
-  now: string; // UTC ISO-8601
-  availableDurations: number[]; // minutes: subset of [15, 30, 45, 60, 90, 120]
-  nextEvent: { title: string; startsAt: string } | null;
+  now:            string;        // UTC ISO-8601
+  availableSlots: BookingSlot[]; // pre-computed rounded end times
+  nextEvent:      { title: string; startsAt: string } | null;
 }
 
 export interface CreateBookingRequest {
-  title?: string;
-  durationMinutes: number;
+  title?:  string;
+  endsAt:  string; // UTC ISO-8601 — the clean rounded end time from availableSlots
 }
 
 export interface CreateBookingResponse {
