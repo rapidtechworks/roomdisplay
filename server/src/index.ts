@@ -14,6 +14,7 @@ import { registerHealthRoute } from './routes/health.js';
 import { registerAuthRoutes } from './routes/admin/auth.js';
 import { registerSourcesRoutes } from './routes/admin/sources.js';
 import { registerRoomsRoutes } from './routes/admin/rooms.js';
+import { registerTabletsRoutes } from './routes/admin/tablets.js';
 import { registerRoomRoutes } from './routes/rooms.js';
 import { registerWsRoute } from './routes/ws.js';
 import { broadcastShutdown } from './lib/wsManager.js';
@@ -51,6 +52,7 @@ await registerHealthRoute(server);
 await registerAuthRoutes(server);
 await registerSourcesRoutes(server);
 await registerRoomsRoutes(server);
+await registerTabletsRoutes(server);
 await registerRoomRoutes(server);
 await registerWsRoute(server);
 

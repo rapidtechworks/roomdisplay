@@ -135,6 +135,20 @@ export interface RoomEvent {
   ends_at: string;
 }
 
+export interface Tablet {
+  tabletUuid: string;
+  label: string | null;
+  lastSeenAt: string | null;
+  lastIp: string | null;
+  userAgent: string | null;
+  assignedRoomId: number | null;
+  assignedRoomSlug: string | null;
+  assignedRoomName: string | null;
+  createdAt: string;
+  online: boolean;
+  currentSlug: string | null;
+}
+
 export interface SyncResult {
   sourceId: number;
   status: 'ok' | 'error';
@@ -171,4 +185,9 @@ export const api = {
   deleteRoom:    (id: number)           => call<{ ok: boolean }>('DELETE', `/api/admin/rooms/${id}`),
   getRoomEvents: (id: number, days = 14) => call<RoomEvent[]>('GET', `/api/admin/rooms/${id}/events?days=${days}`),
   deleteWalkUp:  (roomId: number, walkupId: number) => call<{ ok: boolean }>('DELETE', `/api/admin/rooms/${roomId}/walkups/${walkupId}`),
+
+  // Tablets
+  getTablets:   ()                                   => call<Tablet[]>('GET',   '/api/admin/tablets'),
+  updateTablet: (uuid: string, data: { label?: string | null; assignedRoomId?: number | null }) =>
+    call<{ ok: boolean }>('PATCH', `/api/admin/tablets/${uuid}`, data),
 };

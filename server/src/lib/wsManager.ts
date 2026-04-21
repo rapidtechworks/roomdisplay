@@ -21,6 +21,35 @@ const WS_OPEN = 1;
 
 const subscribers = new Map<string, Set<ManagedSocket>>();
 
+// ─── Connected tablets map ────────────────────────────────────────────────────
+
+interface ConnectedTablet {
+  slug: string;
+  ip: string;
+  connectedAt: string;
+}
+
+const connectedTablets = new Map<string, ConnectedTablet>();
+
+export function trackTablet(tabletUuid: string, slug: string, ip: string): void {
+  connectedTablets.set(tabletUuid, {
+    slug,
+    ip,
+    connectedAt: new Date().toISOString(),
+  });
+}
+
+export function untrackTablet(tabletUuid: string): void {
+  connectedTablets.delete(tabletUuid);
+}
+
+export function getConnectedTablets(): Array<{ tabletUuid: string; slug: string; ip: string; connectedAt: string }> {
+  return Array.from(connectedTablets.entries()).map(([tabletUuid, info]) => ({
+    tabletUuid,
+    ...info,
+  }));
+}
+
 export function subscribe(slug: string, socket: ManagedSocket): void {
   let sockets = subscribers.get(slug);
   if (!sockets) {

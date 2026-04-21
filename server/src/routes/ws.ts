@@ -17,7 +17,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { SocketStream } from '@fastify/websocket';
 import { db } from '../db/index.js';
-import { subscribe, unsubscribe, sendStateTo } from '../lib/wsManager.js';
+import { subscribe, unsubscribe, sendStateTo, trackTablet, untrackTablet } from '../lib/wsManager.js';
 import type { WsClientMessage, WsServerMessage } from '../../../shared/src/index.js';
 
 const PING_INTERVAL_MS = 30_000;
@@ -30,6 +30,7 @@ export async function registerWsRoute(server: FastifyInstance) {
     (connection: SocketStream, request: FastifyRequest) => {
       const socket = connection.socket;
       let subscribedSlug: string | null = null;
+      let subscribedTabletUuid: string | null = null;
 
       // ── Keepalive ──────────────────────────────────────────────────────────
       let pongTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -66,7 +67,9 @@ export async function registerWsRoute(server: FastifyInstance) {
           }
 
           subscribedSlug = roomSlug;
+          subscribedTabletUuid = tabletUuid;
           subscribe(roomSlug, socket);
+          trackTablet(tabletUuid, roomSlug, request.ip);
 
           server.log.info(
             { roomSlug, tabletUuid, ip: request.ip },
@@ -118,6 +121,9 @@ export async function registerWsRoute(server: FastifyInstance) {
         if (subscribedSlug) {
           unsubscribe(subscribedSlug, socket);
           server.log.debug({ slug: subscribedSlug }, 'Tablet disconnected');
+        }
+        if (subscribedTabletUuid) {
+          untrackTablet(subscribedTabletUuid);
         }
       });
 

@@ -2,9 +2,10 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store.ts';
 
 const NAV = [
-  { to: '/admin',         label: 'Dashboard', exact: true },
-  { to: '/admin/sources', label: 'Sources',   exact: false },
-  { to: '/admin/rooms',   label: 'Rooms',     exact: false },
+  { to: '/admin',          label: 'Dashboard', exact: true },
+  { to: '/admin/sources',  label: 'Sources',   exact: false },
+  { to: '/admin/rooms',    label: 'Rooms',     exact: false },
+  { to: '/admin/tablets',  label: 'Tablets',   exact: false },
 ];
 
 export function Layout() {

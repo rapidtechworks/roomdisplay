@@ -9,6 +9,7 @@ import { SourcesPage } from './pages/SourcesPage.tsx';
 import { SourceDetailPage } from './pages/SourceDetailPage.tsx';
 import { RoomsPage } from './pages/RoomsPage.tsx';
 import { RoomDetailPage } from './pages/RoomDetailPage.tsx';
+import { TabletsPage } from './pages/TabletsPage.tsx';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +53,7 @@ function AdminRoutes() {
         <Route path="sources/:id" element={<SourceDetailPage />} />
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="rooms/:id" element={<RoomDetailPage />} />
+        <Route path="tablets" element={<TabletsPage />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>
