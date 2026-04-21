@@ -103,17 +103,19 @@ function ShortUuid({ uuid }: { uuid: string }) {
 export function TabletsPage() {
   const qc = useQueryClient();
 
-  const { data: tablets, isLoading, error } = useQuery({
+  const { data: tablets, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['tablets'],
     queryFn:  () => api.getTablets(),
     refetchInterval: 15_000,
   });
 
+  const [labelError, setLabelError] = useState<string | null>(null);
+
   const updateLabel = useMutation({
     mutationFn: ({ uuid, label }: { uuid: string; label: string | null }) =>
       api.updateTablet(uuid, { label }),
     onMutate: async ({ uuid, label }) => {
-      // Optimistic update
+      setLabelError(null);
       await qc.cancelQueries({ queryKey: ['tablets'] });
       const prev = qc.getQueryData<Tablet[]>(['tablets']);
       qc.setQueryData<Tablet[]>(['tablets'], (old) =>
@@ -121,8 +123,9 @@ export function TabletsPage() {
       );
       return { prev };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(['tablets'], ctx.prev);
+      setLabelError(err instanceof Error ? err.message : 'Failed to save label');
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ['tablets'] });
@@ -179,10 +182,25 @@ export function TabletsPage() {
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-white">Tablets</h1>
-        <span className="text-sm text-gray-500">
-          {onlineCount} of {tablets.length} online
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-500">
+            {onlineCount} of {tablets.length} online
+          </span>
+          <button
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="rounded-lg bg-gray-800 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:bg-gray-700 disabled:opacity-50"
+          >
+            {isFetching ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </div>
+
+      {labelError && (
+        <div className="mb-4 rounded-lg border border-red-900 bg-red-950/20 px-4 py-3 text-sm text-red-400">
+          {labelError}
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900">

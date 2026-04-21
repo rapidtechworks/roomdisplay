@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { CachedEvent, Theme } from '@roomdisplay/shared';
 import { useRoomSocket } from './hooks/useRoomSocket.ts';
 import { useClock } from './hooks/useClock.ts';
@@ -59,6 +59,14 @@ export function RoomDisplay({ slug }: Props) {
   const { state, connected } = useRoomSocket(slug);
   const now                  = useClock();
   const [showBooking, setShowBooking] = useState(false);
+  const [shortId, setShortId] = useState<string | null>(null);
+
+  // Read the tablet's UUID from localStorage and show the first 8 chars in the
+  // corner so admins can identify which tablet is which without relying on IP.
+  useEffect(() => {
+    const uuid = localStorage.getItem('roomdisplay_tablet_uuid');
+    if (uuid) setShortId(uuid.slice(0, 8));
+  }, []);
 
   const derived = useMemo(
     () => state ? deriveState(state.events, now, state.timeZone) : null,
@@ -98,6 +106,13 @@ export function RoomDisplay({ slug }: Props) {
 
       {/* Dark fallback (shows when no image) */}
       <div className="absolute inset-0 -z-30 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+
+      {/* Tablet ID badge — bottom-right corner, for admin identification */}
+      {shortId && (
+        <div className="absolute bottom-2 right-3 z-40 font-mono text-[10px] text-white/20 select-none">
+          {shortId}
+        </div>
+      )}
 
       {/* Offline banner */}
       {!connected && (
