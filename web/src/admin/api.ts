@@ -2,6 +2,7 @@
  * Typed API client for the admin UI.
  * Handles CSRF tokens, session cookies, and JSON parsing.
  */
+import type { Theme } from '@roomdisplay/shared';
 
 // ─── Unauthorized handler ─────────────────────────────────────────────────────
 // Called whenever any API request returns 401 so the UI can redirect to login.
@@ -162,6 +163,20 @@ export interface Tablet {
   currentSlug: string | null;
 }
 
+export interface ThemeResponse {
+  id:       number;
+  name:     string;
+  settings: Theme;
+}
+
+export interface RoomThemeResponse {
+  usingGlobal: boolean;
+  themeId:     number | null;
+  settings:    Theme;
+}
+
+export type { Theme };
+
 export interface SyncResult {
   sourceId: number;
   status: 'ok' | 'error';
@@ -198,6 +213,32 @@ export const api = {
   deleteRoom:    (id: number)           => call<{ ok: boolean }>('DELETE', `/api/admin/rooms/${id}`),
   getRoomEvents: (id: number, days = 14) => call<RoomEvent[]>('GET', `/api/admin/rooms/${id}/events?days=${days}`),
   deleteWalkUp:  (roomId: number, walkupId: number) => call<{ ok: boolean }>('DELETE', `/api/admin/rooms/${roomId}/walkups/${walkupId}`),
+
+  // Themes
+  getGlobalTheme:    ()                                  => call<ThemeResponse>('GET',   '/api/admin/themes/global'),
+  updateGlobalTheme: (data: Partial<Theme>)              => call<{ ok: boolean }>('PATCH', '/api/admin/themes/global', data),
+  getRoomTheme:      (roomId: number)                    => call<RoomThemeResponse>('GET', `/api/admin/rooms/${roomId}/theme`),
+  enableRoomTheme:   (roomId: number)                    => call<{ themeId: number; settings: Theme }>('POST',   `/api/admin/rooms/${roomId}/theme`),
+  updateRoomTheme:   (roomId: number, data: Partial<Theme>) => call<{ ok: boolean }>('PATCH',  `/api/admin/rooms/${roomId}/theme`, data),
+  disableRoomTheme:  (roomId: number)                    => call<{ ok: boolean }>('DELETE', `/api/admin/rooms/${roomId}/theme`),
+
+  // Image upload (multipart — handled separately, not via call())
+  uploadImage: async (file: File): Promise<{ path: string }> => {
+    const csrf = await getCsrf();
+    const form = new FormData();
+    form.append('image', file);
+    const res = await fetch('/api/admin/images/upload', {
+      method:      'POST',
+      credentials: 'include',
+      headers:     { 'x-csrf-token': csrf },
+      body:        form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string; message?: string };
+      throw new ApiError(res.status, err.error ?? 'upload_error', err.message ?? `HTTP ${res.status}`);
+    }
+    return res.json() as Promise<{ path: string }>;
+  },
 
   // Tablets
   getTablets:    ()                                   => call<Tablet[]>('GET',    '/api/admin/tablets'),

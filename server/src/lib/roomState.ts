@@ -10,6 +10,15 @@ const AGENDA_DAYS = 7;
 
 // ─── Theme loader ─────────────────────────────────────────────────────────────
 
+/** Parse a settings_json string, merging with DEFAULT_THEME so any missing fields are filled. */
+function parseTheme(json: string): Theme {
+  try {
+    return { ...DEFAULT_THEME, ...(JSON.parse(json) as Partial<Theme>) };
+  } catch {
+    return DEFAULT_THEME;
+  }
+}
+
 export async function loadTheme(themeOverrideId: number | null): Promise<Theme> {
   if (themeOverrideId !== null) {
     const row = await db
@@ -17,9 +26,7 @@ export async function loadTheme(themeOverrideId: number | null): Promise<Theme> 
       .select('settings_json')
       .where('id', '=', themeOverrideId)
       .executeTakeFirst();
-    if (row) {
-      try { return JSON.parse(row.settings_json) as Theme; } catch { /* fall through */ }
-    }
+    if (row) return parseTheme(row.settings_json);
   }
 
   const globalRow = await db
@@ -27,9 +34,7 @@ export async function loadTheme(themeOverrideId: number | null): Promise<Theme> 
     .select('settings_json')
     .where('is_global', '=', 1)
     .executeTakeFirst();
-  if (globalRow) {
-    try { return JSON.parse(globalRow.settings_json) as Theme; } catch { /* fall through */ }
-  }
+  if (globalRow) return parseTheme(globalRow.settings_json);
 
   return DEFAULT_THEME;
 }

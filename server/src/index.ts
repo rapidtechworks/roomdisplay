@@ -1,6 +1,8 @@
 import 'dotenv/config';
+import { mkdirSync } from 'node:fs';
 import Fastify from 'fastify';
 import websocketPlugin from '@fastify/websocket';
+import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -15,6 +17,7 @@ import { registerAuthRoutes } from './routes/admin/auth.js';
 import { registerSourcesRoutes } from './routes/admin/sources.js';
 import { registerRoomsRoutes } from './routes/admin/rooms.js';
 import { registerTabletsRoutes } from './routes/admin/tablets.js';
+import { registerThemesRoutes } from './routes/admin/themes.js';
 import { registerRoomRoutes } from './routes/rooms.js';
 import { registerWsRoute } from './routes/ws.js';
 import { broadcastShutdown } from './lib/wsManager.js';
@@ -43,7 +46,12 @@ await registerSessionPlugin(server);
 // 2. CSRF protection (requires cookie plugin)
 await registerCsrfPlugin(server);
 
-// 3. WebSocket support (must be before WS routes)
+// 3. Multipart (file uploads — must be registered before upload routes)
+await server.register(fastifyMultipart, {
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max per upload
+});
+
+// 4. WebSocket support (must be before WS routes)
 await server.register(websocketPlugin);
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
@@ -53,8 +61,20 @@ await registerAuthRoutes(server);
 await registerSourcesRoutes(server);
 await registerRoomsRoutes(server);
 await registerTabletsRoutes(server);
+await registerThemesRoutes(server);
 await registerRoomRoutes(server);
 await registerWsRoute(server);
+
+// ─── User-uploaded images (served in all environments) ───────────────────────
+// Uploaded background images live in DATA_DIR/uploads/ and are served at /uploads/*.
+// In dev the Vite proxy forwards /uploads to this server; in prod this is direct.
+const uploadsDir = path.join(config.DATA_DIR, 'uploads');
+mkdirSync(uploadsDir, { recursive: true });
+await server.register(fastifyStatic, {
+  root:           uploadsDir,
+  prefix:         '/uploads/',
+  decorateReply:  false,
+});
 
 // ─── Static file serving (production only) ───────────────────────────────────
 // In dev, Vite serves the frontend and proxies API calls to this server.

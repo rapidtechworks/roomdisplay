@@ -47,19 +47,8 @@ export function StatusPanel({
   return (
     <div className="flex h-full flex-col justify-between py-2">
 
-      {/* Clock */}
-      <p style={{
-        fontFamily: theme.roomNameFontFamily,
-        fontSize:   'clamp(20px, 2.5vw, 36px)',
-        color:      theme.roomNameColor,
-        opacity:    0.65,
-        fontWeight: 400,
-      }}>
-        {fmtClock(now, timeZone)}
-      </p>
-
-      {/* Room name + status */}
-      <div className="flex flex-col gap-4">
+      {/* Room name + clock stacked at the top */}
+      <div className="flex flex-col gap-2">
         <h1 style={{
           fontFamily: theme.roomNameFontFamily,
           fontSize:   `clamp(36px, 6vw, ${theme.roomNameFontSize})`,
@@ -70,6 +59,22 @@ export function StatusPanel({
         }}>
           {roomName}
         </h1>
+
+        {/* Clock — just below the room name */}
+        <p style={{
+          fontFamily: theme.clockFontFamily,
+          fontSize:   theme.clockFontSize,
+          color:      theme.clockColor,
+          opacity:    theme.clockOpacity,
+          fontWeight: 400,
+        }}>
+          {fmtClock(now, timeZone)}
+        </p>
+      </div>
+
+      {/* Status block — middle */}
+      <div className="flex flex-col gap-4">
+        {/* placeholder so justify-between spreads top / middle / bottom */}
 
         {/* Status word */}
         <p style={{
@@ -142,7 +147,7 @@ export function StatusPanel({
               color:           theme.bookButtonTextColor,
               borderRadius:    theme.buttonBorderRadius,
               fontFamily:      theme.roomNameFontFamily,
-              fontSize:        'clamp(18px, 2.2vw, 28px)',
+              fontSize:        theme.bookButtonFontSize,
               fontWeight:      600,
               padding:         '16px 44px',
               border:          'none',

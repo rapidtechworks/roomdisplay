@@ -148,6 +148,32 @@ export function RoomDetailPage() {
         </div>
       </section>
 
+      {/* Theme */}
+      <section className="mb-6">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-gray-500">Theme</h2>
+        <div className="flex items-center justify-between rounded-xl border border-gray-800 bg-gray-900 px-5 py-4">
+          <div>
+            {room.themeOverrideId === null ? (
+              <>
+                <p className="text-sm font-medium text-white">Using global theme</p>
+                <p className="mt-0.5 text-xs text-gray-500">All rooms share this theme unless customised.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-emerald-400">Custom theme active</p>
+                <p className="mt-0.5 text-xs text-gray-500">This room has its own colours, fonts, and background.</p>
+              </>
+            )}
+          </div>
+          <Link
+            to={`/admin/rooms/${roomId}/theme`}
+            className="btn-secondary text-sm"
+          >
+            {room.themeOverrideId === null ? 'Customise →' : 'Edit theme →'}
+          </Link>
+        </div>
+      </section>
+
       {/* Danger zone */}
       <div className="rounded-xl border border-red-900 bg-red-950/20 p-5">
         <h2 className="mb-2 font-semibold text-red-400">Danger Zone</h2>

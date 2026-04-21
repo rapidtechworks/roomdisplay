@@ -49,8 +49,10 @@ export interface Theme {
   glassPanelBorderColor: string;
 
   // Background treatment
-  backgroundOverlayGradient: string;
-  defaultBackgroundImagePath: string;
+  backgroundColor: string;            // solid colour shown behind the image
+  backgroundOverlayGradient: string;  // CSS gradient layered over the image
+  defaultBackgroundImagePath: string; // server-stored upload path (e.g. /uploads/…)
+  backgroundImageUrl: string | null;  // external URL (takes priority over path)
 
   // Typography — room name
   roomNameFontFamily: string;
@@ -58,6 +60,12 @@ export interface Theme {
   roomNameFontWeight: number;
   roomNameColor: string;
   roomNameTextShadow: string;
+
+  // Typography — clock (sits just below room name)
+  clockFontFamily: string;
+  clockFontSize: string;
+  clockColor: string;
+  clockOpacity: number;
 
   // Typography — current event
   eventFontFamily: string;
@@ -75,6 +83,7 @@ export interface Theme {
   accentColorEndingSoon: string;
   accentColorBookButton: string;
   bookButtonTextColor: string;
+  bookButtonFontSize: string;
 
   // Shapes
   buttonBorderRadius: string;
@@ -84,6 +93,7 @@ export interface Theme {
   agendaDayHeaderColor: string;
   agendaEventColor: string;
   agendaMutedColor: string;
+  agendaEventItemBackground: string;  // individual event card tint
 
   // Offline banner
   offlineBannerBackground: string;
@@ -100,14 +110,21 @@ export const DEFAULT_THEME: Theme = {
   glassPanelBlur: 24,
   glassPanelBorderColor: 'rgba(255, 255, 255, 0.2)',
 
+  backgroundColor: '#0f172a',
   backgroundOverlayGradient: 'linear-gradient(135deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%)',
   defaultBackgroundImagePath: '/defaults/bg-neutral.jpg',
+  backgroundImageUrl: null,
 
   roomNameFontFamily: "'Inter', system-ui, sans-serif",
   roomNameFontSize: '96px',
   roomNameFontWeight: 600,
   roomNameColor: '#FFFFFF',
   roomNameTextShadow: '0 2px 16px rgba(0,0,0,0.3)',
+
+  clockFontFamily: "'Inter', system-ui, sans-serif",
+  clockFontSize: 'clamp(20px, 2.5vw, 36px)',
+  clockColor: '#FFFFFF',
+  clockOpacity: 0.65,
 
   eventFontFamily: "'Inter', system-ui, sans-serif",
   eventFontSize: '88px',
@@ -122,6 +139,7 @@ export const DEFAULT_THEME: Theme = {
   accentColorEndingSoon: '#FBBF24',
   accentColorBookButton: '#3B82F6',
   bookButtonTextColor: '#FFFFFF',
+  bookButtonFontSize: 'clamp(18px, 2.2vw, 28px)',
 
   buttonBorderRadius: '16px',
   chipBorderRadius: '16px',
@@ -129,6 +147,7 @@ export const DEFAULT_THEME: Theme = {
   agendaDayHeaderColor: 'rgba(255, 255, 255, 0.85)',
   agendaEventColor: 'rgba(255, 255, 255, 0.95)',
   agendaMutedColor: 'rgba(255, 255, 255, 0.5)',
+  agendaEventItemBackground: 'rgba(255,255,255,0.07)',
 
   offlineBannerBackground: 'rgba(251, 191, 36, 0.92)',
   offlineBannerTextColor: '#1F2937',

@@ -92,7 +92,7 @@ export function AgendaPanel({ events, timeZone, now, theme }: Props) {
                 <div
                   key={event.id}
                   className="rounded-xl px-3 py-2.5"
-                  style={{ background: 'rgba(255,255,255,0.07)' }}
+                  style={{ background: theme.agendaEventItemBackground }}
                 >
                   <p className="text-sm font-medium leading-snug" style={{ color: theme.agendaEventColor }}>
                     {event.title}

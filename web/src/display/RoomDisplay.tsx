@@ -90,22 +90,27 @@ export function RoomDisplay({ slug }: Props) {
   return (
     <div className="relative h-screen w-screen overflow-hidden">
 
-      {/* Background image layer */}
-      {theme.defaultBackgroundImagePath && (
+      {/* Solid colour base — always rendered, sits below everything */}
+      <div
+        className="absolute inset-0 -z-30"
+        style={{ backgroundColor: theme.backgroundColor }}
+      />
+
+      {/* Background image — URL takes priority over server-stored path */}
+      {(theme.backgroundImageUrl || theme.defaultBackgroundImagePath) && (
         <div
           className="absolute inset-0 -z-20 bg-cover bg-center"
-          style={{ backgroundImage: `url(${theme.defaultBackgroundImagePath})` }}
+          style={{
+            backgroundImage: `url(${theme.backgroundImageUrl ?? theme.defaultBackgroundImagePath})`,
+          }}
         />
       )}
 
       {/* Gradient overlay */}
       <div
         className="absolute inset-0 -z-10"
-        style={{ background: theme.backgroundOverlayGradient ?? 'linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,0,0,0.6))' }}
+        style={{ background: theme.backgroundOverlayGradient }}
       />
-
-      {/* Dark fallback (shows when no image) */}
-      <div className="absolute inset-0 -z-30 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
 
       {/* Tablet ID badge — bottom-right corner, for admin identification */}
       {shortId && (
