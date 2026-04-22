@@ -94,8 +94,9 @@ export function useCameraMotion({
 
             for (let i = 0; i < curr.length; i += 4) {
               // Weighted luma (BT.601) avoids false positives from colour noise
-              const prevLuma = (prevData[i] * 299 + prevData[i + 1] * 587 + prevData[i + 2] * 114) / 1000;
-              const currLuma = (curr[i]     * 299 + curr[i + 1]     * 587 + curr[i + 2]     * 114) / 1000;
+              // Non-null assertions are safe: i is always a valid RGBA offset within bounds
+              const prevLuma = (prevData[i]! * 299 + prevData[i + 1]! * 587 + prevData[i + 2]! * 114) / 1000;
+              const currLuma = (curr[i]!     * 299 + curr[i + 1]!     * 587 + curr[i + 2]!     * 114) / 1000;
               if (Math.abs(currLuma - prevLuma) > threshold) diffPixels++;
             }
 
