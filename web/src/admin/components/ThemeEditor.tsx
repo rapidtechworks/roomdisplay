@@ -143,6 +143,33 @@ function SelectField<T extends string | number>({ label, value, onChange, option
   );
 }
 
+function ToggleField({ label, value, onChange, note, wide = false }: {
+  label:    string;
+  value:    boolean;
+  onChange: (v: boolean) => void;
+  note?:    string;
+  wide?:    boolean;
+}) {
+  return (
+    <Field label={label} wide={wide}>
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={value}
+          onClick={() => onChange(!value)}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${value ? 'bg-indigo-500' : 'bg-gray-600'}`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${value ? 'translate-x-5' : 'translate-x-0'}`}
+          />
+        </button>
+        {note && <p className="text-xs text-gray-500">{note}</p>}
+      </div>
+    </Field>
+  );
+}
+
 function RangeField({ label, value, onChange, min, max, step, wide = false }: {
   label:    string;
   value:    number;
@@ -688,6 +715,37 @@ export function ThemeEditor({
                 value={value.chipBorderRadius}
                 onChange={(v) => set('chipBorderRadius', v)}
                 placeholder="16px"
+              />
+            </CollapseSection>
+
+            {/* Screensaver */}
+            <CollapseSection title="Screensaver">
+              <ToggleField
+                label="Enable screensaver"
+                value={value.screensaverEnabled}
+                onChange={(v) => set('screensaverEnabled', v)}
+                note="Activates after idle period when room is available. Never shows during a live meeting."
+                wide
+              />
+              <RangeField
+                label="Idle time before activation (minutes)"
+                value={value.screensaverIdleMinutes}
+                onChange={(v) => set('screensaverIdleMinutes', v)}
+                min={1} max={30} step={1}
+                wide
+              />
+              <ToggleField
+                label="Wake on camera motion"
+                value={value.screensaverUseCameraMotion}
+                onChange={(v) => set('screensaverUseCameraMotion', v)}
+                note="Uses the tablet's front camera to detect movement and wake the screen. Camera permission required — grant once in the browser. Falls back to touch-only if unavailable."
+                wide
+              />
+              <ColorField
+                label="Drifting text colour"
+                value={value.screensaverTextColor}
+                onChange={(v) => set('screensaverTextColor', v)}
+                wide
               />
             </CollapseSection>
 

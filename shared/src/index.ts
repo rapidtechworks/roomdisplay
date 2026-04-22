@@ -103,6 +103,12 @@ export interface Theme {
   offlineBannerBackground: string;
   offlineBannerTextColor: string;
 
+  // Screensaver (burn-in protection)
+  screensaverEnabled: boolean;
+  screensaverIdleMinutes: number;       // minutes of inactivity before activating
+  screensaverUseCameraMotion: boolean;  // opt-in: wake on camera motion
+  screensaverTextColor: string;         // colour of drifting room name text
+
   // Logo
   logoImagePath: string | null;
   logoImageUrl: string | null;        // external URL (takes priority over path)
@@ -160,6 +166,11 @@ export const DEFAULT_THEME: Theme = {
 
   offlineBannerBackground: 'rgba(251, 191, 36, 0.92)',
   offlineBannerTextColor: '#1F2937',
+
+  screensaverEnabled: true,
+  screensaverIdleMinutes: 5,
+  screensaverUseCameraMotion: false,
+  screensaverTextColor: 'rgba(255, 255, 255, 0.2)',
 
   logoImagePath: null,
   logoImageUrl: null,

@@ -1,10 +1,13 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import type { CachedEvent, Theme } from '@roomdisplay/shared';
 import { useRoomSocket } from './hooks/useRoomSocket.ts';
 import { useClock } from './hooks/useClock.ts';
 import { StatusPanel } from './components/StatusPanel.tsx';
 import { AgendaPanel } from './components/AgendaPanel.tsx';
 import { BookingSheet } from './components/BookingSheet.tsx';
+import { Screensaver } from './components/Screensaver.tsx';
+import { useCameraMotion } from './hooks/useCameraMotion.ts';
 
 // ─── Status types ─────────────────────────────────────────────────────────────
 
@@ -58,8 +61,14 @@ interface Props { slug: string }
 export function RoomDisplay({ slug }: Props) {
   const { state, connected } = useRoomSocket(slug);
   const now                  = useClock();
-  const [showBooking, setShowBooking] = useState(false);
-  const [shortId, setShortId] = useState<string | null>(null);
+  const [showBooking,     setShowBooking]     = useState(false);
+  const [shortId,         setShortId]         = useState<string | null>(null);
+  const [showScreensaver, setShowScreensaver] = useState(false);
+
+  // ── Screensaver: stable refs so timer callbacks don't capture stale closures ─
+  const idleTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const derivedRef    = useRef<DerivedState | null>(null);
+  const themeRef      = useRef<Theme | null>(null);
 
   // Read the tablet's UUID from localStorage and show the first 8 chars in the
   // corner so admins can identify which tablet is which without relying on IP.
@@ -72,6 +81,64 @@ export function RoomDisplay({ slug }: Props) {
     () => state ? deriveState(state.events, now, state.timeZone) : null,
     [state, now],
   );
+
+  // Keep refs current on every render (safe — refs don't trigger re-renders)
+  derivedRef.current = derived;
+  themeRef.current   = state?.theme ?? null;
+
+  // ── Screensaver idle timer ──────────────────────────────────────────────────
+
+  const scheduleScreensaver = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    const theme = themeRef.current;
+    if (!theme?.screensaverEnabled) return;
+
+    idleTimerRef.current = setTimeout(() => {
+      // Only activate when the room is available — never during a live meeting
+      if (derivedRef.current?.status === 'available') {
+        setShowScreensaver(true);
+      }
+    }, theme.screensaverIdleMinutes * 60_000);
+  }, []); // stable — reads from refs internally
+
+  const wakeUp = useCallback(() => {
+    setShowScreensaver(false);
+    scheduleScreensaver(); // restart the idle clock after waking
+  }, [scheduleScreensaver]);
+
+  // Listen for any user interaction to reset the idle timer
+  useEffect(() => {
+    function onInteraction() {
+      setShowScreensaver(false);
+      scheduleScreensaver();
+    }
+    const events = ['touchstart', 'mousedown', 'keydown'] as const;
+    events.forEach((e) => window.addEventListener(e, onInteraction, { passive: true }));
+    return () => events.forEach((e) => window.removeEventListener(e, onInteraction));
+  }, [scheduleScreensaver]);
+
+  // (Re)start the idle timer when status or screensaver settings change
+  useEffect(() => {
+    if (!state?.theme.screensaverEnabled) {
+      setShowScreensaver(false);
+      return;
+    }
+    scheduleScreensaver();
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [derived?.status, state?.theme.screensaverEnabled, state?.theme.screensaverIdleMinutes, scheduleScreensaver]);
+
+  // Auto-dismiss if a meeting starts while screensaver is showing
+  useEffect(() => {
+    if (derived?.status !== 'available') setShowScreensaver(false);
+  }, [derived?.status]);
+
+  // Camera motion detection — only active while screensaver is visible
+  useCameraMotion({
+    enabled: (state?.theme.screensaverUseCameraMotion ?? false) && showScreensaver,
+    onMotion: wakeUp,
+  });
 
   // ── Loading / not-found screen ──────────────────────────────────────────────
   if (!state) {
@@ -207,6 +274,20 @@ export function RoomDisplay({ slug }: Props) {
         theme={theme}
         onClose={() => setShowBooking(false)}
       />
+
+      {/* Screensaver — above everything else */}
+      <AnimatePresence>
+        {showScreensaver && (
+          <Screensaver
+            key="screensaver"
+            roomName={state.roomName}
+            now={now}
+            timeZone={state.timeZone}
+            theme={theme}
+            onWake={wakeUp}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
