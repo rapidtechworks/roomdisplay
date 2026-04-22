@@ -94,10 +94,7 @@ export function RoomDisplay({ slug }: Props) {
     if (!theme?.screensaverEnabled) return;
 
     idleTimerRef.current = setTimeout(() => {
-      // Only activate when the room is available — never during a live meeting
-      if (derivedRef.current?.status === 'available') {
-        setShowScreensaver(true);
-      }
+      setShowScreensaver(true); // activates during any status — screensaver shows current state
     }, theme.screensaverIdleMinutes * 60_000);
   }, []); // stable — reads from refs internally
 
@@ -129,10 +126,23 @@ export function RoomDisplay({ slug }: Props) {
     };
   }, [derived?.status, state?.theme.screensaverEnabled, state?.theme.screensaverIdleMinutes, scheduleScreensaver]);
 
-  // Auto-dismiss if a meeting starts while screensaver is showing
+  // On status change: briefly wake the display so the new status is visible,
+  // then let the idle timer bring the screensaver back naturally.
   useEffect(() => {
-    if (derived?.status !== 'available') setShowScreensaver(false);
-  }, [derived?.status]);
+    setShowScreensaver(false);
+    scheduleScreensaver();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [derived?.status]); // intentionally exclude scheduleScreensaver to avoid double-firing
+
+  // Pre-event wake: dismiss screensaver when next event is approaching
+  useEffect(() => {
+    if (!showScreensaver || !derived?.nextEvent) return;
+    const preEventMs   = (state?.theme.screensaverPreEventMinutes ?? 15) * 60_000;
+    const timeUntilNext = new Date(derived.nextEvent.startsAt).getTime() - now.getTime();
+    if (timeUntilNext <= preEventMs && timeUntilNext > 0) {
+      wakeUp();
+    }
+  }, [showScreensaver, derived?.nextEvent, now, state?.theme.screensaverPreEventMinutes, wakeUp]);
 
   // Camera motion detection — only active while screensaver is visible
   useCameraMotion({
@@ -277,13 +287,15 @@ export function RoomDisplay({ slug }: Props) {
 
       {/* Screensaver — above everything else */}
       <AnimatePresence>
-        {showScreensaver && (
+        {showScreensaver && derived && (
           <Screensaver
             key="screensaver"
             roomName={state.roomName}
             now={now}
             timeZone={state.timeZone}
             theme={theme}
+            status={derived.status}
+            currentEvent={derived.currentEvent}
             onWake={wakeUp}
           />
         )}

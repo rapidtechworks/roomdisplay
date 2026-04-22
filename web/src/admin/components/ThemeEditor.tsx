@@ -734,6 +734,13 @@ export function ThemeEditor({
                 min={1} max={30} step={1}
                 wide
               />
+              <RangeField
+                label="Wake display before next event (minutes)"
+                value={value.screensaverPreEventMinutes}
+                onChange={(v) => set('screensaverPreEventMinutes', v)}
+                min={5} max={60} step={5}
+                wide
+              />
               <ToggleField
                 label="Wake on camera motion"
                 value={value.screensaverUseCameraMotion}

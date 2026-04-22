@@ -106,8 +106,9 @@ export interface Theme {
   // Screensaver (burn-in protection)
   screensaverEnabled: boolean;
   screensaverIdleMinutes: number;       // minutes of inactivity before activating
+  screensaverPreEventMinutes: number;   // wake display this many minutes before next event
   screensaverUseCameraMotion: boolean;  // opt-in: wake on camera motion
-  screensaverTextColor: string;         // colour of drifting room name text
+  screensaverTextColor: string;         // colour of drifting room name / clock text
 
   // Logo
   logoImagePath: string | null;
@@ -169,6 +170,7 @@ export const DEFAULT_THEME: Theme = {
 
   screensaverEnabled: true,
   screensaverIdleMinutes: 5,
+  screensaverPreEventMinutes: 15,
   screensaverUseCameraMotion: false,
   screensaverTextColor: 'rgba(255, 255, 255, 0.2)',
 
