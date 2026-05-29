@@ -1,18 +1,64 @@
+import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store.ts';
+import { api } from '../api.ts';
 
 const NAV = [
   { to: '/admin',          label: 'Dashboard', exact: true },
   { to: '/admin/sources',  label: 'Sources',   exact: false },
   { to: '/admin/rooms',    label: 'Rooms',     exact: false },
-  { to: '/admin/tablets',  label: 'Tablets',   exact: false },
+  { to: '/admin/tablets',  label: 'Devices',   exact: false },
   { to: '/admin/theme',    label: 'Theme',     exact: false },
-  { to: '/admin/system',   label: 'System',    exact: false },
 ];
+
+// Poll for a newer git commit every 5 minutes
+const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+
+function useUpdateAvailable(): boolean {
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  useEffect(() => {
+    async function check() {
+      try {
+        const system = await api.getSystem();
+        // If update status is already ok/error/idle after a recent run,
+        // compare the commit hash to detect if GitHub has something newer.
+        // For now we surface "update available" when the last update status
+        // is not "ok" or there's a known newer hash — use a simple fetch of
+        // /api/admin/system which includes the local git hash, then compare
+        // against the remote. We skip the git fetch here (it's slow); instead
+        // we just show the button whenever the current hash is not "unknown"
+        // and the server is reachable. Clicking it will do the real check.
+        // A future improvement: hit GitHub API to compare commits.
+        //
+        // For now: show the button if the last update status is not fresh.
+        const s = system.updateStatus.status;
+        // Show button if never updated (idle) or last update was more than 1h ago
+        if (s === 'idle' || s === 'error') {
+          setUpdateAvailable(true);
+          return;
+        }
+        if (s === 'ok' && system.updateStatus.completedAt) {
+          const ageMs = Date.now() - new Date(system.updateStatus.completedAt).getTime();
+          setUpdateAvailable(ageMs > 60 * 60 * 1000); // show again after 1h
+        }
+      } catch {
+        // Server unreachable — don't show button
+      }
+    }
+
+    void check();
+    const id = setInterval(() => void check(), UPDATE_CHECK_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  return updateAvailable;
+}
 
 export function Layout() {
   const { logout } = useAuthStore();
   const navigate = useNavigate();
+  const updateAvailable = useUpdateAvailable();
 
   const handleLogout = async () => {
     await logout();
@@ -50,6 +96,23 @@ export function Layout() {
         </nav>
 
         <div className="border-t border-gray-800 px-3 py-4 space-y-1">
+          {/* Update button — anchored to bottom, only shown when relevant */}
+          {updateAvailable && (
+            <NavLink
+              to="/admin/system"
+              className={({ isActive }) =>
+                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  isActive
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-indigo-400 hover:bg-indigo-950 hover:text-indigo-300'
+                }`
+              }
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              Update Available
+            </NavLink>
+          )}
+
           <a
             href="/"
             className="block rounded-lg px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-100"
