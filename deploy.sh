@@ -15,6 +15,7 @@ echo "==> Installing dependencies..."
 NODE_ENV=development npm ci --workspaces --include-workspace-root
 
 echo "==> Building..."
+export PATH="$(pwd)/node_modules/.bin:$PATH"
 NODE_ENV=development npm run build
 
 echo "==> Restarting service..."

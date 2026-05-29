@@ -29,10 +29,13 @@ git pull >> "$LOG_FILE" 2>&1 || fail "git pull failed — check /var/log/roomdis
 
 write_status "{\"status\":\"running\",\"step\":\"Installing dependencies\"}"
 # NODE_ENV=production causes npm to skip devDependencies (vite, tsc, etc.)
-# Override it here so build tools are installed, then the service runs with production.
+# Override it here so build tools are installed; the running service uses production.
 NODE_ENV=development npm ci --workspaces --include-workspace-root >> "$LOG_FILE" 2>&1 || fail "npm ci failed"
 
 write_status "{\"status\":\"running\",\"step\":\"Building\"}"
+# Explicitly add node_modules/.bin to PATH so workspace tools (vite, tsc) are
+# found in detached shell contexts where npm doesn't inject the bin path automatically.
+export PATH="$REPO_DIR/node_modules/.bin:$PATH"
 NODE_ENV=development npm run build >> "$LOG_FILE" 2>&1 || fail "Build failed"
 
 write_status "{\"status\":\"running\",\"step\":\"Running migrations\"}"
