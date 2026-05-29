@@ -55,10 +55,17 @@ export async function registerSystemRoutes(server: FastifyInstance) {
   server.post('/api/admin/system/update', async (_req, reply) => {
     const current = readUpdateStatus();
     if (current.status === 'running' || current.status === 'restarting') {
-      return reply.code(409).send({
-        error: 'update_in_progress',
-        message: 'An update is already running.',
-      });
+      // Allow override if the current "running" status is stale (>3 min old).
+      // systemd kills the script's cgroup during restart, which can leave a
+      // stale status if the script didn't write "ok" before being killed.
+      const ageMs = current.startedAt ? Date.now() - new Date(current.startedAt).getTime() : 0;
+      if (ageMs < 3 * 60 * 1000) {
+        return reply.code(409).send({
+          error: 'update_in_progress',
+          message: 'An update is already running.',
+        });
+      }
+      server.log.warn({ ageMs, status: current }, 'Overriding stale update status');
     }
 
     writeFileSync(

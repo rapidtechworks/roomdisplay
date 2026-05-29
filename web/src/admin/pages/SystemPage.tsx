@@ -3,13 +3,16 @@ import { api, ApiError } from '../api.ts';
 import type { SystemInfo, UpdateStatus } from '../api.ts';
 
 const POLL_MS = 2500;
+const STALE_AFTER_MS = 3 * 60 * 1000; // status hasn't moved in 3 min → consider stale
 
 export function SystemPage() {
   const [info, setInfo]             = useState<SystemInfo | null>(null);
   const [status, setStatus]         = useState<UpdateStatus>({ status: 'idle' });
   const [triggering, setTriggering] = useState(false);
   const [serverDown, setServerDown] = useState(false);
+  const [now, setNow]               = useState(() => Date.now());
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     api.getSystem()
@@ -22,7 +25,13 @@ export function SystemPage() {
       })
       .catch(() => { /* non-critical on load */ });
 
-    return () => stopPolling();
+    // Tick every 10s so stale detection updates without polling the server
+    tickRef.current = setInterval(() => setNow(Date.now()), 10_000);
+
+    return () => {
+      stopPolling();
+      if (tickRef.current) clearInterval(tickRef.current);
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function startPolling() {
@@ -64,8 +73,32 @@ export function SystemPage() {
     }
   }
 
+  async function handleReset() {
+    if (!confirm('Mark this update as failed and allow a new update to start?')) return;
+    try {
+      // Trigger a new update — the server will overwrite the stale status
+      await api.triggerUpdate();
+      setStatus({ status: 'running', step: 'Starting update…', startedAt: new Date().toISOString() });
+      startPolling();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Server still thinks an update is running — force-set local state to error
+        // so the user can retry. The server will eventually time out or overwrite.
+        setStatus({ status: 'error', message: 'Previous update appears to be stuck. Reset on the server: rm /opt/roomdisplay/data/update-status.json' });
+      } else {
+        alert(err instanceof ApiError ? err.message : 'Failed to reset.');
+      }
+    }
+  }
+
+  // ── Stale detection ───────────────────────────────────────────────────────
+  // If status is "running" or "restarting" but startedAt is older than the
+  // threshold, treat it as stuck. Most updates finish in under 60 seconds.
   const isActive = status.status === 'running' || status.status === 'restarting';
-  const busy = isActive || serverDown || triggering;
+  const ageMs = status.startedAt ? now - new Date(status.startedAt).getTime() : 0;
+  const isStale = isActive && ageMs > STALE_AFTER_MS;
+
+  const busy = (isActive && !isStale) || serverDown || triggering;
 
   return (
     <div className="p-8 max-w-xl">
@@ -93,8 +126,8 @@ export function SystemPage() {
           Update
         </p>
 
-        {/* Progress / result banner */}
-        {(isActive || serverDown) && (
+        {/* Active progress banner */}
+        {busy && (
           <div className="mb-4 flex items-center gap-3 rounded-lg border border-indigo-900 bg-indigo-950/40 px-4 py-3">
             <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-indigo-400" />
             <span className="text-sm text-indigo-300">
@@ -102,6 +135,21 @@ export function SystemPage() {
                 ? 'Server restarting — waiting for it to come back up…'
                 : (status.step ?? 'Working…')}
             </span>
+          </div>
+        )}
+
+        {/* Stale status — user can retry */}
+        {isStale && !serverDown && (
+          <div className="mb-4 rounded-lg border border-yellow-900 bg-yellow-950/40 px-4 py-3">
+            <p className="text-sm text-yellow-400">
+              Update appears stuck on &ldquo;{status.step ?? 'running'}&rdquo; — last update
+              was {Math.floor(ageMs / 60_000)} minutes ago.
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              The service likely restarted successfully but the script couldn&apos;t write its
+              final status. Try again or check{' '}
+              <code className="text-gray-400">/var/log/roomdisplay/update.log</code>.
+            </p>
           </div>
         )}
 
@@ -126,11 +174,11 @@ export function SystemPage() {
         </p>
 
         <button
-          onClick={() => void handleUpdate()}
+          onClick={() => void (isStale ? handleReset() : handleUpdate())}
           disabled={busy}
           className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-40"
         >
-          {busy ? 'Updating…' : 'Update Now'}
+          {busy ? 'Updating…' : isStale ? 'Retry Update' : 'Update Now'}
         </button>
       </div>
     </div>
