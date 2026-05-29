@@ -49,7 +49,13 @@ export function Layout() {
           ))}
         </nav>
 
-        <div className="border-t border-gray-800 px-3 py-4">
+        <div className="border-t border-gray-800 px-3 py-4 space-y-1">
+          <a
+            href="/"
+            className="block rounded-lg px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-100"
+          >
+            ← Room Picker
+          </a>
           <button
             onClick={handleLogout}
             className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-100"
