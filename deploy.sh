@@ -12,10 +12,10 @@ cd "$REPO_DIR"
 git pull
 
 echo "==> Installing dependencies..."
-npm ci --workspaces --include-workspace-root
+NODE_ENV=development npm ci --workspaces --include-workspace-root
 
 echo "==> Building..."
-npm run build
+NODE_ENV=development npm run build
 
 echo "==> Restarting service..."
 sudo systemctl restart roomdisplay

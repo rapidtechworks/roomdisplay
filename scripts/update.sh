@@ -28,10 +28,12 @@ write_status "{\"status\":\"running\",\"step\":\"Pulling latest code\",\"started
 git pull >> "$LOG_FILE" 2>&1 || fail "git pull failed — check /var/log/roomdisplay/update.log"
 
 write_status "{\"status\":\"running\",\"step\":\"Installing dependencies\"}"
-npm ci --workspaces --include-workspace-root >> "$LOG_FILE" 2>&1 || fail "npm ci failed"
+# NODE_ENV=production causes npm to skip devDependencies (vite, tsc, etc.)
+# Override it here so build tools are installed, then the service runs with production.
+NODE_ENV=development npm ci --workspaces --include-workspace-root >> "$LOG_FILE" 2>&1 || fail "npm ci failed"
 
 write_status "{\"status\":\"running\",\"step\":\"Building\"}"
-npm run build >> "$LOG_FILE" 2>&1 || fail "Build failed"
+NODE_ENV=development npm run build >> "$LOG_FILE" 2>&1 || fail "Build failed"
 
 write_status "{\"status\":\"running\",\"step\":\"Running migrations\"}"
 npm run migrate >> "$LOG_FILE" 2>&1 || fail "Migrations failed"
