@@ -12,11 +12,12 @@ STATUS_FILE="$DATA_DIR/update-status.json"
 LOG_FILE="/var/log/roomdisplay/update.log"
 
 write_status() {
-  printf '%s\n' "$1" > "$STATUS_FILE"
+  printf '%s\n' "$1" > "$STATUS_FILE" 2>/dev/null || true
 }
 
 fail() {
   write_status "{\"status\":\"error\",\"message\":\"$1\",\"completedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+  echo "=== Update FAILED: $1 at $(date -u) ===" >> "$LOG_FILE" 2>/dev/null || true
   exit 1
 }
 
@@ -44,9 +45,17 @@ npm run migrate >> "$LOG_FILE" 2>&1 || fail "Migrations failed"
 write_status "{\"status\":\"restarting\",\"step\":\"Restarting service\"}"
 sudo systemctl restart roomdisplay >> "$LOG_FILE" 2>&1 || fail "Service restart failed"
 
-# Give the service a moment to come up, then write final status.
-# This runs in the detached script after the Node process has already restarted.
-sleep 5
-write_status "{\"status\":\"ok\",\"message\":\"Update complete\",\"completedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+# Wait for the service to come back up. Use 'set +e' so nothing after this
+# point can cause the script to exit before writing the final status.
+set +e
 
-echo "=== Update complete at $(date -u) ===" >> "$LOG_FILE"
+sleep 8
+
+# Verify the service actually came up
+if sudo systemctl is-active --quiet roomdisplay; then
+  write_status "{\"status\":\"ok\",\"message\":\"Update complete\",\"completedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+  echo "=== Update complete at $(date -u) ===" >> "$LOG_FILE"
+else
+  write_status "{\"status\":\"error\",\"message\":\"Service failed to start after restart — check journalctl -u roomdisplay\",\"completedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+  echo "=== Update FAILED: service did not come up at $(date -u) ===" >> "$LOG_FILE"
+fi
