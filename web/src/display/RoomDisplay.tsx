@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import type { CachedEvent, Theme } from '@roomdisplay/shared';
 import { useRoomSocket } from './hooks/useRoomSocket.ts';
 import { useClock } from './hooks/useClock.ts';
@@ -59,7 +60,9 @@ function deriveState(events: CachedEvent[], now: Date, timeZone: string): Derive
 interface Props { slug: string }
 
 export function RoomDisplay({ slug }: Props) {
-  const { state, connected } = useRoomSocket(slug);
+  const [searchParams]       = useSearchParams();
+  const previewMode          = searchParams.get('preview') === '1';
+  const { state, connected } = useRoomSocket(slug, { previewMode });
   const now                  = useClock();
   const [showBooking,     setShowBooking]     = useState(false);
   const [shortId,         setShortId]         = useState<string | null>(null);
@@ -89,6 +92,7 @@ export function RoomDisplay({ slug }: Props) {
   // ── Screensaver idle timer ──────────────────────────────────────────────────
 
   const scheduleScreensaver = useCallback(() => {
+    if (previewMode) return;
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     const theme = themeRef.current;
     if (!theme?.screensaverEnabled) return;
@@ -225,7 +229,7 @@ export function RoomDisplay({ slug }: Props) {
       )}
 
       {/* Tablet ID badge — bottom-right corner, for admin identification */}
-      {shortId && (
+      {shortId && !previewMode && (
         <div className="absolute bottom-2 right-3 z-40 font-mono text-[10px] text-white/20 select-none">
           {shortId}
         </div>
@@ -283,29 +287,33 @@ export function RoomDisplay({ slug }: Props) {
       </div>
 
       {/* Walk-up booking sheet */}
-      <BookingSheet
-        visible={showBooking}
-        slug={slug}
-        timeZone={state.timeZone}
-        theme={theme}
-        onClose={() => setShowBooking(false)}
-      />
+      {!previewMode && (
+        <BookingSheet
+          visible={showBooking}
+          slug={slug}
+          timeZone={state.timeZone}
+          theme={theme}
+          onClose={() => setShowBooking(false)}
+        />
+      )}
 
       {/* Screensaver — above everything else */}
-      <AnimatePresence>
-        {showScreensaver && derived && (
-          <Screensaver
-            key="screensaver"
-            roomName={state.roomName}
-            now={now}
-            timeZone={state.timeZone}
-            theme={theme}
-            status={derived.status}
-            currentEvent={derived.currentEvent}
-            onWake={wakeUp}
-          />
-        )}
-      </AnimatePresence>
+      {!previewMode && (
+        <AnimatePresence>
+          {showScreensaver && derived && (
+            <Screensaver
+              key="screensaver"
+              roomName={state.roomName}
+              now={now}
+              timeZone={state.timeZone}
+              theme={theme}
+              status={derived.status}
+              currentEvent={derived.currentEvent}
+              onWake={wakeUp}
+            />
+          )}
+        </AnimatePresence>
+      )}
     </div>
   );
 }

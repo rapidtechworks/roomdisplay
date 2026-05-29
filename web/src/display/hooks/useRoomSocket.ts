@@ -23,7 +23,9 @@ function getOrCreateTabletUuid(): string {
   return uuid;
 }
 
-export function useRoomSocket(slug: string) {
+export function useRoomSocket(slug: string, options?: { previewMode?: boolean }) {
+  const previewMode = options?.previewMode ?? false;
+
   const [state,     setState]     = useState<RoomState | null>(null);
   const [connected, setConnected] = useState(false);
 
@@ -100,6 +102,17 @@ export function useRoomSocket(slug: string) {
 
   useEffect(() => {
     alive.current = true;
+
+    if (previewMode) {
+      // Preview: REST polling only — no WebSocket, no tablet registration
+      void fetchState();
+      pollRef.current = setInterval(() => void fetchState(), 30_000);
+      return () => {
+        alive.current = false;
+        stopPoll();
+      };
+    }
+
     void fetchState(); // Load state immediately via REST so display shows before WS connects
     connect();
     return () => {
@@ -108,7 +121,7 @@ export function useRoomSocket(slug: string) {
       if (retryRef.current) clearTimeout(retryRef.current);
       stopPoll();
     };
-  }, [connect, stopPoll, fetchState]);
+  }, [connect, stopPoll, fetchState, previewMode]);
 
-  return { state, connected };
+  return { state, connected: previewMode ? state !== null : connected };
 }
