@@ -13,6 +13,7 @@ import { RoomDetailPage } from './pages/RoomDetailPage.tsx';
 import { TabletsPage } from './pages/TabletsPage.tsx';
 import { ThemePage } from './pages/ThemePage.tsx';
 import { RoomThemePage } from './pages/RoomThemePage.tsx';
+import { SystemPage } from './pages/SystemPage.tsx';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +68,7 @@ function AdminRoutes() {
         <Route path="rooms/:id/theme" element={<RoomThemePage />} />
         <Route path="tablets" element={<TabletsPage />} />
         <Route path="theme" element={<ThemePage />} />
+        <Route path="system" element={<SystemPage />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>

@@ -245,4 +245,19 @@ export const api = {
   updateTablet:  (uuid: string, data: { label?: string | null; assignedRoomId?: number | null }) =>
     call<{ ok: boolean }>('PATCH',  `/api/admin/tablets/${uuid}`, data),
   deleteTablet:  (uuid: string)                       => call<{ ok: boolean }>('DELETE', `/api/admin/tablets/${uuid}`),
+
+  // System
+  getSystem:      () => call<SystemInfo>('GET',  '/api/admin/system'),
+  triggerUpdate:  () => call<{ message: string }>('POST', '/api/admin/system/update'),
+  getUpdateStatus: () => call<UpdateStatus>('GET', '/api/admin/system/update/status'),
 };
+
+export interface GitVersion  { hash: string; subject: string; date: string; }
+export interface UpdateStatus {
+  status: 'idle' | 'running' | 'restarting' | 'ok' | 'error';
+  step?: string;
+  message?: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+export interface SystemInfo  { version: GitVersion; updateStatus: UpdateStatus; repoDir: string; }

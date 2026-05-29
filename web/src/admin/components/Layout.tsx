@@ -7,6 +7,7 @@ const NAV = [
   { to: '/admin/rooms',    label: 'Rooms',     exact: false },
   { to: '/admin/tablets',  label: 'Tablets',   exact: false },
   { to: '/admin/theme',    label: 'Theme',     exact: false },
+  { to: '/admin/system',   label: 'System',    exact: false },
 ];
 
 export function Layout() {
