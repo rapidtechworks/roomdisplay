@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { CachedEvent, Theme } from '@roomdisplay/shared';
 import { useRoomSocket } from './hooks/useRoomSocket.ts';
 import { useClock } from './hooks/useClock.ts';
@@ -231,18 +231,24 @@ export function RoomDisplay({ slug }: Props) {
         </div>
       )}
 
-      {/* Offline banner */}
-      {!connected && (
-        <div
-          className="absolute inset-x-0 top-0 z-50 py-1.5 text-center text-sm font-medium"
-          style={{
-            background: theme.offlineBannerBackground,
-            color:      theme.offlineBannerTextColor,
-          }}
-        >
-          Reconnecting… displaying last known state
-        </div>
-      )}
+      {/* Offline banner — slides down from top */}
+      <AnimatePresence>
+        {!connected && (
+          <motion.div
+            key="offline"
+            initial={{ y: '-100%' }}
+            animate={{ y: 0, transition: { duration: 0.3, ease: 'easeOut' } }}
+            exit={{ y: '-100%', transition: { duration: 0.3, ease: 'easeIn' } }}
+            className="absolute inset-x-0 top-0 z-50 py-1.5 text-center text-sm font-medium"
+            style={{
+              background: theme.offlineBannerBackground,
+              color:      theme.offlineBannerTextColor,
+            }}
+          >
+            Reconnecting… displaying last known state
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main layout */}
       <div className={`flex h-full gap-6 p-8 ${!connected ? 'pt-10' : ''}`}>

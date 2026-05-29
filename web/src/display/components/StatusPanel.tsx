@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from 'framer-motion';
 import type { Theme, CachedEvent } from '@roomdisplay/shared';
 import type { RoomStatus } from '../RoomDisplay.tsx';
 
@@ -43,6 +44,26 @@ function statusColor(status: RoomStatus, theme: Theme): string {
   return theme.accentColorEndingSoon;
 }
 
+// ─── Shared motion variants ───────────────────────────────────────────────────
+
+const slideUp = {
+  initial:  { opacity: 0, y: 18 },
+  animate:  { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+  exit:     { opacity: 0, y: -12, transition: { duration: 0.3, ease: 'easeIn' } },
+};
+
+const fadeOnly = {
+  initial:  { opacity: 0 },
+  animate:  { opacity: 1, transition: { duration: 0.6, ease: 'easeInOut' } },
+  exit:     { opacity: 0, transition: { duration: 0.3, ease: 'easeIn' } },
+};
+
+const scaleFade = {
+  initial:  { opacity: 0, scale: 0.95 },
+  animate:  { opacity: 1, scale: 1, transition: { duration: 0.3, ease: 'easeOut' } },
+  exit:     { opacity: 0, scale: 0.95, transition: { duration: 0.2, ease: 'easeIn' } },
+};
+
 export function StatusPanel({
   roomName, timeZone, now, status, currentEvent,
   availableUntil, minutesRemaining, theme, onBook, logo,
@@ -53,7 +74,7 @@ export function StatusPanel({
   return (
     <div className="flex h-full flex-col justify-between py-2">
 
-      {/* Room name + clock stacked at the top */}
+      {/* Room name + clock — static, no transition */}
       <div className="flex flex-col gap-2">
         <h1 style={{
           fontFamily: theme.roomNameFontFamily,
@@ -66,7 +87,6 @@ export function StatusPanel({
           {roomName}
         </h1>
 
-        {/* Clock — just below the room name */}
         <p style={{
           fontFamily: theme.clockFontFamily,
           fontSize:   theme.clockFontSize,
@@ -78,96 +98,101 @@ export function StatusPanel({
         </p>
       </div>
 
-      {/* Status block — middle */}
+      {/* Status block — crossfades when status changes */}
       <div className="flex flex-col gap-4">
-        {/* placeholder so justify-between spreads top / middle / bottom */}
+        <AnimatePresence mode="wait">
+          <motion.div key={status} {...slideUp} className="flex flex-col gap-4">
 
-        {/* Status word */}
-        <p style={{
-          fontFamily: theme.roomNameFontFamily,
-          fontSize:   `clamp(32px, 7vw, ${theme.statusFontSize})`,
-          fontWeight: theme.statusFontWeight,
-          color,
-          lineHeight: 1,
-          textShadow: theme.statusTextShadow,
-        }}>
-          {statusLabel(status)}
-        </p>
-
-        {/* Sub-info */}
-        {status === 'available' && availableUntil && (
-          <p style={{
-            fontFamily: theme.roomNameFontFamily,
-            fontSize:   'clamp(16px, 2.2vw, 30px)',
-            color:      theme.roomNameColor,
-            opacity:    0.7,
-          }}>
-            Available until {availableUntil}
-          </p>
-        )}
-
-        {(status === 'occupied' || status === 'ending-soon') && currentEvent && (
-          <div>
+            {/* Status word */}
             <p style={{
-              fontFamily: theme.eventFontFamily,
-              fontSize:   `clamp(22px, 4.5vw, ${theme.eventFontSize})`,
-              fontWeight: theme.eventFontWeight,
-              color:      theme.eventColor,
-              lineHeight: 1.2,
+              fontFamily: theme.roomNameFontFamily,
+              fontSize:   `clamp(32px, 7vw, ${theme.statusFontSize})`,
+              fontWeight: theme.statusFontWeight,
+              color,
+              lineHeight: 1,
+              textShadow: theme.statusTextShadow,
             }}>
-              {currentEvent.title}
+              {statusLabel(status)}
             </p>
 
-            {status === 'ending-soon' && minutesRemaining !== null && (
+            {/* Sub-info */}
+            {status === 'available' && availableUntil && (
               <p style={{
                 fontFamily: theme.roomNameFontFamily,
-                fontSize:   'clamp(14px, 1.8vw, 26px)',
-                color:      theme.accentColorEndingSoon,
-                marginTop:  '8px',
+                fontSize:   'clamp(16px, 2.2vw, 30px)',
+                color:      theme.roomNameColor,
+                opacity:    0.7,
               }}>
-                Ends in {minutesRemaining} minute{minutesRemaining !== 1 ? 's' : ''}
+                Available until {availableUntil}
               </p>
             )}
 
-            {status === 'occupied' && (
-              <p style={{
-                fontFamily: theme.roomNameFontFamily,
-                fontSize:   'clamp(14px, 1.8vw, 26px)',
-                color:      theme.roomNameColor,
-                opacity:    0.55,
-                marginTop:  '8px',
-              }}>
-                Until {fmtTime(currentEvent.endsAt, timeZone)}
-              </p>
+            {(status === 'occupied' || status === 'ending-soon') && currentEvent && (
+              <div>
+                <p style={{
+                  fontFamily: theme.eventFontFamily,
+                  fontSize:   `clamp(22px, 4.5vw, ${theme.eventFontSize})`,
+                  fontWeight: theme.eventFontWeight,
+                  color:      theme.eventColor,
+                  lineHeight: 1.2,
+                }}>
+                  {currentEvent.title}
+                </p>
+
+                {status === 'ending-soon' && minutesRemaining !== null && (
+                  <p style={{
+                    fontFamily: theme.roomNameFontFamily,
+                    fontSize:   'clamp(14px, 1.8vw, 26px)',
+                    color:      theme.accentColorEndingSoon,
+                    marginTop:  '8px',
+                  }}>
+                    Ends in {minutesRemaining} minute{minutesRemaining !== 1 ? 's' : ''}
+                  </p>
+                )}
+
+                {status === 'occupied' && (
+                  <p style={{
+                    fontFamily: theme.roomNameFontFamily,
+                    fontSize:   'clamp(14px, 1.8vw, 26px)',
+                    color:      theme.roomNameColor,
+                    opacity:    0.55,
+                    marginTop:  '8px',
+                  }}>
+                    Until {fmtTime(currentEvent.endsAt, timeZone)}
+                  </p>
+                )}
+              </div>
             )}
-          </div>
-        )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* Book Now button + beside-book-now logo */}
       <div className="flex items-center gap-6">
-        {canBook && (
-          <button
-            onClick={onBook}
-            style={{
-              backgroundColor: theme.accentColorBookButton,
-              color:           theme.bookButtonTextColor,
-              borderRadius:    theme.buttonBorderRadius,
-              fontFamily:      theme.roomNameFontFamily,
-              fontSize:        theme.bookButtonFontSize,
-              fontWeight:      600,
-              padding:         '16px 44px',
-              border:          'none',
-              cursor:          'pointer',
-              transition:      'opacity 0.15s',
-              boxShadow:       theme.glassPanelShadow,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
-          >
-            Book Now
-          </button>
-        )}
+        <AnimatePresence mode="wait">
+          {canBook && (
+            <motion.button
+              key="book-now"
+              {...scaleFade}
+              onClick={onBook}
+              style={{
+                backgroundColor: theme.accentColorBookButton,
+                color:           theme.bookButtonTextColor,
+                borderRadius:    theme.buttonBorderRadius,
+                fontFamily:      theme.roomNameFontFamily,
+                fontSize:        theme.bookButtonFontSize,
+                fontWeight:      600,
+                padding:         '16px 44px',
+                border:          'none',
+                cursor:          'pointer',
+                boxShadow:       theme.glassPanelShadow,
+              }}
+              whileHover={{ opacity: 0.85 }}
+            >
+              Book Now
+            </motion.button>
+          )}
+        </AnimatePresence>
         {logo && (
           <img
             src={logo.src}

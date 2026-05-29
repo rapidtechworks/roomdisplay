@@ -177,9 +177,12 @@ export function BookingSheet({ visible, slug, timeZone, theme, onClose }: Props)
 
                   <div className="grid grid-cols-3 gap-3">
                     {durations.availableSlots.map((slot) => (
-                      <button
+                      <motion.button
                         key={slot.endsAt}
                         onClick={() => void book(slot.endsAt)}
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
                         style={{
                           borderRadius:    theme.buttonBorderRadius,
                           backgroundColor: theme.accentColorBookButton,
@@ -197,7 +200,7 @@ export function BookingSheet({ visible, slug, timeZone, theme, onClose }: Props)
                         <span style={{ fontSize: '12px', fontWeight: 400, opacity: 0.7 }}>
                           ends {fmtTime(slot.endsAt, timeZone)}
                         </span>
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                 </>
@@ -208,9 +211,13 @@ export function BookingSheet({ visible, slug, timeZone, theme, onClose }: Props)
               )}
 
               {stage === 'success' && (
-                <p style={{ color: theme.accentColorAvailable, fontSize: '26px', fontWeight: 600 }}>
+                <motion.p
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1, transition: { duration: 0.4, ease: 'easeOut' } }}
+                  style={{ color: theme.accentColorAvailable, fontSize: '26px', fontWeight: 600 }}
+                >
                   ✓ Room booked successfully!
-                </p>
+                </motion.p>
               )}
 
               {stage === 'error' && (
