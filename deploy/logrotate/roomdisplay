@@ -1,0 +1,13 @@
+/var/log/roomdisplay/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 rtwadmin rtwadmin
+    sharedscripts
+    postrotate
+        systemctl kill --signal=SIGHUP roomdisplay.service 2>/dev/null || true
+    endscript
+}

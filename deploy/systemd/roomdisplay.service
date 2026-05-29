@@ -1,0 +1,17 @@
+[Unit]
+Description=Room Display Server
+After=network.target
+
+[Service]
+Type=simple
+User=rtwadmin
+WorkingDirectory=/opt/roomdisplay
+ExecStart=/usr/bin/node dist/server/src/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/roomdisplay/app.log
+StandardError=append:/var/log/roomdisplay/app.log
+EnvironmentFile=/opt/roomdisplay/.env
+
+[Install]
+WantedBy=multi-user.target

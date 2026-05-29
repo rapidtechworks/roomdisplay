@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <!-- Calendar grid outline -->
+  <rect x="96" y="96" width="320" height="320" rx="24" fill="none" stroke="#ffffff" stroke-width="24"/>
+  <!-- Header bar -->
+  <rect x="96" y="96" width="320" height="88" rx="24" fill="#ffffff" opacity="0.15"/>
+  <!-- Grid lines horizontal -->
+  <line x1="96" y1="232" x2="416" y2="232" stroke="#ffffff" stroke-width="12" opacity="0.3"/>
+  <line x1="96" y1="312" x2="416" y2="312" stroke="#ffffff" stroke-width="12" opacity="0.3"/>
+  <!-- Grid lines vertical -->
+  <line x1="203" y1="184" x2="203" y2="416" stroke="#ffffff" stroke-width="12" opacity="0.3"/>
+  <line x1="309" y1="184" x2="309" y2="416" stroke="#ffffff" stroke-width="12" opacity="0.3"/>
+  <!-- Filled cell highlight -->
+  <rect x="215" y="244" width="82" height="56" rx="8" fill="#ffffff" opacity="0.7"/>
+</svg>
