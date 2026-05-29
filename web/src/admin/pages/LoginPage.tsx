@@ -32,6 +32,11 @@ export function LoginPage() {
           <h1 className="text-3xl font-semibold text-white">Room Display</h1>
           <p className="mt-1 text-sm text-gray-400">Admin sign in</p>
         </div>
+        <div className="mb-4 text-center">
+          <a href="/" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+            ← Back to Room Picker
+          </a>
+        </div>
 
         <form
           onSubmit={handleSubmit}
