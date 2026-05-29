@@ -42,20 +42,12 @@ NODE_ENV=development npm run build >> "$LOG_FILE" 2>&1 || fail "Build failed"
 write_status "{\"status\":\"running\",\"step\":\"Running migrations\"}"
 npm run migrate >> "$LOG_FILE" 2>&1 || fail "Migrations failed"
 
-write_status "{\"status\":\"restarting\",\"step\":\"Restarting service\"}"
-sudo systemctl restart roomdisplay >> "$LOG_FILE" 2>&1 || fail "Service restart failed"
+# Write success BEFORE restarting the service. systemd kills all processes in
+# the service cgroup on restart (including this detached script), so we cannot
+# write status after the restart call. The UI polls after the server comes back
+# up and will read this "ok" from the file.
+write_status "{\"status\":\"ok\",\"message\":\"Update complete\",\"completedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+echo "=== Update complete at $(date -u) ===" >> "$LOG_FILE"
 
-# Wait for the service to come back up. Use 'set +e' so nothing after this
-# point can cause the script to exit before writing the final status.
-set +e
-
-sleep 8
-
-# Verify the service actually came up
-if sudo systemctl is-active --quiet roomdisplay; then
-  write_status "{\"status\":\"ok\",\"message\":\"Update complete\",\"completedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
-  echo "=== Update complete at $(date -u) ===" >> "$LOG_FILE"
-else
-  write_status "{\"status\":\"error\",\"message\":\"Service failed to start after restart — check journalctl -u roomdisplay\",\"completedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
-  echo "=== Update FAILED: service did not come up at $(date -u) ===" >> "$LOG_FILE"
-fi
+write_status "{\"status\":\"ok\",\"step\":\"Restarting service\",\"message\":\"Update complete\",\"completedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+sudo systemctl restart roomdisplay >> "$LOG_FILE" 2>&1 || true
