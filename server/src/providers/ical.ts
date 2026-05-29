@@ -111,12 +111,15 @@ export class IcalProvider implements CalendarProvider {
         // ── Recurring event ────────────────────────────────────────────────
         const occurrences = event.rrule.between(from, to, true);
 
-        // Build a set of excluded dates (EXDATE)
-        const exdates = new Set<number>();
+        // Build a set of excluded calendar dates from EXDATE entries.
+        // node-ical keys each EXDATE by its date string (e.g. "2026-06-08").
+        // We compare against the UTC date of each rrule occurrence because
+        // rrule.between() shifts UTC DTSTART by the local TZ offset, making
+        // timestamp comparison unreliable — both still land on the same date.
+        const exdates = new Set<string>();
         if (event.exdate) {
-          for (const ex of Object.values(event.exdate)) {
-            const exDate = ex instanceof Date ? ex : new Date(String(ex));
-            exdates.add(exDate.getTime());
+          for (const key of Object.keys(event.exdate)) {
+            exdates.add(key); // "YYYY-MM-DD"
           }
         }
 
@@ -124,7 +127,7 @@ export class IcalProvider implements CalendarProvider {
         const durationMs = eventEnd.getTime() - rawStart.getTime();
 
         for (const occurrence of occurrences) {
-          if (exdates.has(occurrence.getTime())) continue;
+          if (exdates.has(occurrence.toISOString().slice(0, 10))) continue;
 
           const occEnd = new Date(occurrence.getTime() + durationMs);
           events.push({

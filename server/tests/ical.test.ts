@@ -135,12 +135,7 @@ describe('IcalProvider.fetchEvents', () => {
     expect(ids.size).toBe(events.length);
   });
 
-  // KNOWN ISSUE: EXDATE exclusion is silently broken because node-ical's RRULE
-  // expansion shifts DTSTART by local TZ while EXDATE entries are parsed as the
-  // original UTC instant, so the `exdates.has(occurrence.getTime())` check in
-  // ical.ts never matches. The 4-event result below documents current behavior;
-  // this test should be flipped to expect 3 once the provider is fixed.
-  it.skip('respects EXDATE exclusions in a recurring event', async () => {
+  it('respects EXDATE exclusions in a recurring event', async () => {
     const ics = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
@@ -162,15 +157,13 @@ describe('IcalProvider.fetchEvents', () => {
       new Date('2026-07-01T00:00:00Z'),
     );
 
-    // RRULE expansion has 3 of the 4 original occurrences (one excluded by EXDATE).
-    // node-ical's rrule expansion shifts UTC DTSTART by local TZ — we verify by
-    // count and 7-day stride rather than absolute UTC strings.
+    // 4 occurrences minus 1 EXDATE = 3
     expect(events).toHaveLength(3);
     const sorted = [...events].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
     const week = 7 * 24 * 60 * 60 * 1000;
-    // Gap between 2nd and 3rd occurrence should be two weeks (the excluded one sits between them)
-    expect(sorted[2]!.startsAt.getTime() - sorted[1]!.startsAt.getTime()).toBe(2 * week);
-    expect(sorted[1]!.startsAt.getTime() - sorted[0]!.startsAt.getTime()).toBe(week);
+    // Week 2 (June 8) is excluded — gap between occ[0] (June 1) and occ[1] (June 15) is 2 weeks
+    expect(sorted[1]!.startsAt.getTime() - sorted[0]!.startsAt.getTime()).toBe(2 * week);
+    expect(sorted[2]!.startsAt.getTime() - sorted[1]!.startsAt.getTime()).toBe(week);
   });
 
   it('flags all-day events with allDay=true', async () => {
