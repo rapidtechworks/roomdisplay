@@ -77,6 +77,7 @@ SESSION_SECRET=$SESSION_SECRET
 ENCRYPTION_KEY=$ENCRYPTION_KEY
 LOG_LEVEL=info
 DEFAULT_TIMEZONE=$DEFAULT_TIMEZONE
+VERSION_CHECK_URL=https://gist.githubusercontent.com/rapidtechworks/73995f9c1a0f32185af636468e2d8f2e/raw/version.json
 EOF
   chmod 600 "$ENV_FILE"
   echo "  .env written to $ENV_FILE"
