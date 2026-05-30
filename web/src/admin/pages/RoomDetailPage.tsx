@@ -74,8 +74,8 @@ export function RoomDetailPage() {
   });
 
   const clearAllTiers = useMutation({
-    mutationFn: async () => {
-      if (room?.themeOverrideId !== null) await api.disableRoomTheme(roomId);
+    mutationFn: async ({ hasOverride }: { hasOverride: boolean }) => {
+      if (hasOverride) await api.disableRoomTheme(roomId);
       await api.updateRoom(roomId, { themeGroupId: null });
     },
     onSuccess: () => {
@@ -173,21 +173,17 @@ export function RoomDetailPage() {
 
   function handleTierClick(tier: 'room' | 'group' | 'global') {
     if (!room || tier === effectiveTier || tierBusy) return;
+    const hasOverride = room.themeOverrideId !== null;
     if (tier === 'room') {
       setPendingGroup(false);
       enableOverride.mutate();
     } else if (tier === 'group') {
-      if (room.themeGroupId !== null) {
-        // Previously assigned group exists — just remove override if any
-        if (room.themeOverrideId !== null) disableOverride.mutate();
-      } else {
-        // No group assigned — remove override if any, then wait for dropdown pick
-        if (room.themeOverrideId !== null) disableOverride.mutate();
-        setPendingGroup(true);
-      }
+      // Remove room override if present (group or pending-group becomes active)
+      if (hasOverride) disableOverride.mutate();
+      if (room.themeGroupId === null) setPendingGroup(true);
     } else {
       setPendingGroup(false);
-      clearAllTiers.mutate();
+      clearAllTiers.mutate({ hasOverride });
     }
   }
 
