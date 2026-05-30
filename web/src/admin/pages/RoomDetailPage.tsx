@@ -60,20 +60,21 @@ export function RoomDetailPage() {
   const screenH       = Math.round(IFRAME_H * previewScale);
 
   // ── Theme tier mutations ────────────────────────────────────────────────────
-  // Single composite mutation: set room to a specific tier, with side effects.
   const setTier = useMutation({
     mutationFn: async (tier: 'room' | 'group' | 'global') => {
       if (!room) return;
-      const hasOverride = room.themeOverrideId !== null;
-      const hasGroup    = room.themeGroupId !== null;
-
       if (tier === 'room') {
-        if (!hasOverride) await api.enableRoomTheme(roomId);
-      } else if (tier === 'group') {
-        if (hasOverride) await api.disableRoomTheme(roomId);
+        // Enable override if not already present (POST creates the theme row).
+        if (room.themeOverrideId === null) await api.enableRoomTheme(roomId);
+        // If override already exists, just update the tier field.
+        else await api.updateRoom(roomId, { themeTier: 'room' });
       } else {
-        if (hasOverride) await api.disableRoomTheme(roomId);
-        if (hasGroup)    await api.updateRoom(roomId, { themeGroupId: null });
+        // Switching away from room: remove override if present, set new tier.
+        // Group assignment (themeGroupId) is intentionally NOT cleared.
+        if (room.themeOverrideId !== null) await api.disableRoomTheme(roomId);
+        // disableRoomTheme already sets tier='global' on the server, so only
+        // send the explicit tier update when no override existed.
+        else await api.updateRoom(roomId, { themeTier: tier });
       }
     },
     onSuccess: () => {
@@ -82,14 +83,12 @@ export function RoomDetailPage() {
     },
   });
 
-  // Assigning a group also flips room into Group tier (clears any override).
+  // Picking a group always switches to Group tier (removes any room override).
   const assignGroup = useMutation({
     mutationFn: async (gid: number | null) => {
       if (!room) return;
-      if (gid !== null && room.themeOverrideId !== null) {
-        await api.disableRoomTheme(roomId);
-      }
-      await api.updateRoom(roomId, { themeGroupId: gid });
+      if (room.themeOverrideId !== null) await api.disableRoomTheme(roomId);
+      await api.updateRoom(roomId, { themeGroupId: gid, themeTier: gid !== null ? 'group' : 'global' });
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['room',  roomId] });
@@ -163,17 +162,14 @@ export function RoomDetailPage() {
 
   const currentGroup = groups?.find((g) => g.id === room.themeGroupId);
 
-  // Tier is fully derived from server state — no client-side "pending" mode.
-  const activeTier: 'room' | 'group' | 'global' =
-    room.themeOverrideId !== null ? 'room'  :
-    room.themeGroupId    !== null ? 'group' : 'global';
+  // Tier comes directly from the server — no inference needed.
+  const activeTier = room.themeTier;
 
   const tierBusy = setTier.isPending || assignGroup.isPending;
 
   function handleTierClick(tier: 'room' | 'group' | 'global') {
     if (!room || tier === activeTier || tierBusy) return;
-    // Clicking "Group Theme" with no group assigned is a no-op — user must
-    // pick one from the dropdown (which is always visible).
+    // Can't switch to Group tier without a group assigned; use the dropdown.
     if (tier === 'group' && room.themeGroupId === null) return;
     setTier.mutate(tier);
   }

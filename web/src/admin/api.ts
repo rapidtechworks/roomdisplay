@@ -123,6 +123,7 @@ export interface Room {
   externalCalendarId: string;
   themeOverrideId: number | null;
   themeGroupId: number | null;
+  themeTier: 'room' | 'group' | 'global';
   backgroundImagePath: string | null;
   createdAt: string;
   source: { id: number; name: string; type: string };

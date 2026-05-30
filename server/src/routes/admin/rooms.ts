@@ -39,6 +39,7 @@ const updateRoomSchema = z.object({
   timeZone:           z.string().min(1).optional(),
   themeOverrideId:    z.number().int().positive().nullable().optional(),
   themeGroupId:       z.number().int().positive().nullable().optional(),
+  themeTier:          z.enum(['room', 'group', 'global']).optional(),
 });
 
 // ─── Route registration ───────────────────────────────────────────────────────
@@ -55,7 +56,8 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
       .select([
         'r.id', 'r.slug', 'r.display_name', 'r.time_zone',
         'r.calendar_source_id', 'r.external_calendar_id',
-        'r.theme_override_id', 'r.theme_group_id', 'r.background_image_path', 'r.created_at',
+        'r.theme_override_id', 'r.theme_group_id', 'r.theme_tier',
+        'r.background_image_path', 'r.created_at',
         'cs.display_name as source_name', 'cs.type as source_type',
       ])
       .orderBy('r.display_name', 'asc')
@@ -71,6 +73,7 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
         externalCalendarId: r.external_calendar_id,
         themeOverrideId:    r.theme_override_id,
         themeGroupId:       r.theme_group_id,
+        themeTier:          r.theme_tier,
         backgroundImagePath: r.background_image_path,
         createdAt:          r.created_at,
         source: {
@@ -145,6 +148,7 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
         time_zone:             timeZone,
         theme_override_id:     themeOverrideId,
         theme_group_id:        themeGroupId,
+        theme_tier:            'global',
         background_image_path: null,
         created_at:            new Date().toISOString(),
       })
@@ -174,7 +178,8 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
         .select([
           'r.id', 'r.slug', 'r.display_name', 'r.time_zone',
           'r.calendar_source_id', 'r.external_calendar_id',
-          'r.theme_override_id', 'r.theme_group_id', 'r.background_image_path', 'r.created_at',
+          'r.theme_override_id', 'r.theme_group_id', 'r.theme_tier',
+          'r.background_image_path', 'r.created_at',
           'cs.display_name as source_name', 'cs.type as source_type',
         ])
         .where('r.id', '=', id)
@@ -203,6 +208,7 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
         externalCalendarId:  room.external_calendar_id,
         themeOverrideId:     room.theme_override_id,
         themeGroupId:        room.theme_group_id,
+        themeTier:           room.theme_tier,
         backgroundImagePath: room.background_image_path,
         createdAt:           room.created_at,
         source: {
@@ -243,13 +249,14 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
       const updates: Record<string, unknown> = {};
       const {
         displayName, slug, calendarSourceId,
-        externalCalendarId, timeZone, themeOverrideId, themeGroupId,
+        externalCalendarId, timeZone, themeOverrideId, themeGroupId, themeTier,
       } = parsed.data;
 
       if (displayName        !== undefined) updates['display_name']          = displayName;
       if (timeZone           !== undefined) updates['time_zone']             = timeZone;
       if (themeOverrideId    !== undefined) updates['theme_override_id']     = themeOverrideId;
       if (themeGroupId       !== undefined) updates['theme_group_id']        = themeGroupId;
+      if (themeTier          !== undefined) updates['theme_tier']            = themeTier;
       if (calendarSourceId   !== undefined) updates['calendar_source_id']   = calendarSourceId;
       if (externalCalendarId !== undefined) updates['external_calendar_id'] = externalCalendarId;
 

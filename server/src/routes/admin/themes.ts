@@ -186,7 +186,7 @@ export async function registerThemesRoutes(server: FastifyInstance) {
 
       await db
         .updateTable('rooms')
-        .set({ theme_override_id: newTheme.id })
+        .set({ theme_override_id: newTheme.id, theme_tier: 'room' })
         .where('id', '=', roomId)
         .execute();
 
@@ -271,10 +271,11 @@ export async function registerThemesRoutes(server: FastifyInstance) {
 
       const themeId = room.theme_override_id;
 
-      // Unlink first, then delete the orphaned theme row
+      // Unlink first, then delete the orphaned theme row.
+      // theme_tier reverts to 'global'; group assignment is intentionally kept.
       await db
         .updateTable('rooms')
-        .set({ theme_override_id: null })
+        .set({ theme_override_id: null, theme_tier: 'global' })
         .where('id', '=', roomId)
         .execute();
 

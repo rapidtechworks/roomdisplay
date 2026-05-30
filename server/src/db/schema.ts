@@ -41,7 +41,8 @@ export interface RoomsTable {
   external_calendar_id: string;     // PCO resource ID or iCal source URL
   time_zone: string;                // IANA tz, e.g. America/Chicago
   theme_override_id: number | null; // FK → themes (null = use group or global)
-  theme_group_id: number | null;    // FK → theme_groups (null = use global)
+  theme_group_id: number | null;    // FK → theme_groups; retained even when tier != 'group'
+  theme_tier: 'room' | 'group' | 'global'; // explicit active tier
   background_image_path: string | null;
   created_at: string;
 }
