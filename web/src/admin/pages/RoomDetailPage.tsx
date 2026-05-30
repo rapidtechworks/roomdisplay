@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type WalkUp, type RoomEvent, type Tablet } from '../api.ts';
@@ -6,9 +6,8 @@ import { api, ApiError, type WalkUp, type RoomEvent, type Tablet } from '../api.
 // ─── Preview constants ────────────────────────────────────────────────────────
 const IFRAME_W = 1280;
 const IFRAME_H = 720;
-const SCALE    = 0.45;
-const CARD_W   = IFRAME_W * SCALE; // 576
-const CARD_H   = IFRAME_H * SCALE; // 324
+// Horizontal pixels consumed by outer silver shell (p-[2px]×2) + bezel (p-[10px]×2)
+const FRAME_OVERHEAD = 24;
 
 const TZ_OPTIONS = [
   'America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix',
@@ -42,6 +41,23 @@ export function RoomDetailPage() {
     queryFn:         () => api.getTablets(),
     refetchInterval: 30_000,
   });
+
+  // ── Responsive preview — measure the right column and fit the iframe to it ──
+  const previewColRef = useRef<HTMLDivElement>(null);
+  const [colWidth, setColWidth] = useState(480);
+  useEffect(() => {
+    const el = previewColRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w !== undefined) setColWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const previewScale  = (colWidth - FRAME_OVERHEAD) / IFRAME_W;
+  const screenW       = Math.round(IFRAME_W * previewScale);
+  const screenH       = Math.round(IFRAME_H * previewScale);
 
   // ── Theme tier accordion ────────────────────────────────────────────────────
   const [openTier, setOpenTier] = useState<'room' | 'group' | 'global' | null>(null);
@@ -135,10 +151,10 @@ export function RoomDetailPage() {
       </Link>
 
       {/* Two-column layout */}
-      <div className="flex gap-8 items-start">
+      <div className="grid grid-cols-2 gap-8 items-start">
 
         {/* ── Left column ─────────────────────────────────────────────────── */}
-        <div className="min-w-0 flex-1 space-y-6">
+        <div className="min-w-0 space-y-6">
 
           {/* Room name heading — inline editable */}
           <div>
@@ -416,7 +432,7 @@ export function RoomDetailPage() {
         </div>
 
         {/* ── Right column — preview + device ─────────────────────────────── */}
-        <div className="shrink-0 space-y-4" style={{ width: CARD_W }}>
+        <div ref={previewColRef} className="min-w-0 space-y-4">
 
           {/* Tablet preview */}
           <div
@@ -429,7 +445,7 @@ export function RoomDetailPage() {
             <div className="rounded-[22px] bg-gray-950 p-[10px] overflow-hidden">
               <div
                 className="relative rounded-[8px]"
-                style={{ width: CARD_W, height: CARD_H, overflow: 'hidden', clipPath: 'inset(0px round 8px)' }}
+                style={{ width: screenW, height: screenH, overflow: 'hidden', clipPath: `inset(0px round 8px)` }}
               >
                 <iframe
                   src={`/display/${room.slug}?preview=1`}
@@ -439,7 +455,7 @@ export function RoomDetailPage() {
                   style={{
                     width:           IFRAME_W,
                     height:          IFRAME_H,
-                    transform:       `scale(${SCALE})`,
+                    transform:       `scale(${previewScale})`,
                     transformOrigin: 'top left',
                   }}
                 />
