@@ -31,7 +31,7 @@ export function RoomPreviewCard({ room, tablets, onClick }: Props) {
     >
       {/* Tablet body — thin metallic silver shell */}
       <div
-        className="rounded-[20px] p-[3px] shadow-xl shadow-black/60 transition-shadow group-hover:shadow-indigo-950/60"
+        className="rounded-[20px] p-[2px] shadow-xl shadow-black/60 transition-shadow group-hover:shadow-indigo-950/60"
         style={{
           background: 'linear-gradient(145deg, #d4d8de 0%, #a8adb5 40%, #8e9299 100%)',
           boxShadow: '0 0 0 1px rgba(255,255,255,0.25) inset, 0 20px 40px rgba(0,0,0,0.55)',
