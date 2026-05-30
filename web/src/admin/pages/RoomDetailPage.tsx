@@ -60,8 +60,8 @@ export function RoomDetailPage() {
   const screenH       = Math.round(IFRAME_H * previewScale);
 
   // ── Theme tier mutations ────────────────────────────────────────────────────
-  // Show group picker when user clicks the Group row but no group is assigned yet
-  const [showGroupPicker, setShowGroupPicker] = useState(false);
+  // pendingGroup: user clicked Group row but hasn't picked a group yet
+  const [pendingGroup, setPendingGroup] = useState(false);
 
   const enableOverride = useMutation({
     mutationFn: () => api.enableRoomTheme(roomId),
@@ -75,7 +75,6 @@ export function RoomDetailPage() {
 
   const clearAllTiers = useMutation({
     mutationFn: async () => {
-      // Order matters: disable override first, then clear group
       if (room?.themeOverrideId !== null) await api.disableRoomTheme(roomId);
       await api.updateRoom(roomId, { themeGroupId: null });
     },
@@ -160,14 +159,37 @@ export function RoomDetailPage() {
 
   const currentGroup = groups?.find((g) => g.id === room.themeGroupId);
 
-  // Which tier is selected for this room (from server state)
-  const selectedTier: 'room' | 'group' | 'global' =
-    room.themeOverrideId !== null   ? 'room'   :
-    room.themeGroupId    !== null   ? 'group'  : 'global';
+  // Tier derived from server state
+  const serverTier: 'room' | 'group' | 'global' =
+    room.themeOverrideId !== null ? 'room'  :
+    room.themeGroupId    !== null ? 'group' : 'global';
+
+  // effectiveTier: 'group' also when user clicked the Group row but hasn't picked yet
+  const effectiveTier = pendingGroup ? 'group' : serverTier;
 
   const tierBusy =
     enableOverride.isPending || disableOverride.isPending ||
     clearAllTiers.isPending  || groupMutation.isPending;
+
+  function handleTierClick(tier: 'room' | 'group' | 'global') {
+    if (!room || tier === effectiveTier || tierBusy) return;
+    if (tier === 'room') {
+      setPendingGroup(false);
+      enableOverride.mutate();
+    } else if (tier === 'group') {
+      if (room.themeGroupId !== null) {
+        // Previously assigned group exists — just remove override if any
+        if (room.themeOverrideId !== null) disableOverride.mutate();
+      } else {
+        // No group assigned — remove override if any, then wait for dropdown pick
+        if (room.themeOverrideId !== null) disableOverride.mutate();
+        setPendingGroup(true);
+      }
+    } else {
+      setPendingGroup(false);
+      clearAllTiers.mutate();
+    }
+  }
 
   return (
     <div className="p-8">
@@ -278,21 +300,19 @@ export function RoomDetailPage() {
             </h2>
             <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
 
-              {/* Tier 1 — Room Override */}
+              {/* Room Override */}
               <TierRow
-                selected={selectedTier === 'room'}
+                selected={effectiveTier === 'room'}
                 busy={tierBusy}
+                onClick={() => handleTierClick('room')}
                 label="Room Override"
                 description={
-                  selectedTier === 'room'
-                    ? 'Active — overrides group and global'
-                    : 'Custom theme for this room only'
+                  effectiveTier === 'room'
+                    ? 'Active — this room has its own custom theme'
+                    : 'Give this room its own colors and fonts'
                 }
-                onClick={() => {
-                  if (selectedTier !== 'room') enableOverride.mutate();
-                }}
               >
-                {selectedTier === 'room' && (
+                {effectiveTier === 'room' && (
                   <Link
                     to={`/admin/rooms/${roomId}/theme`}
                     className="btn-primary text-xs shrink-0"
@@ -303,74 +323,75 @@ export function RoomDetailPage() {
                 )}
               </TierRow>
 
-              {/* Tier 2 — Group Theme */}
-              <TierRow
-                selected={selectedTier === 'group'}
-                busy={tierBusy}
-                label="Group Theme"
-                description={
-                  currentGroup
-                    ? `${currentGroup.name}${currentGroup.usingGlobal ? ' (using global)' : ' (custom theme)'}`
-                    : 'Share a theme across multiple rooms'
-                }
-                onClick={() => {
-                  if (selectedTier === 'room') {
-                    // Remove override — group tier (if any) becomes active
-                    disableOverride.mutate();
-                    if (!room.themeGroupId) setShowGroupPicker(true);
-                  } else if (selectedTier === 'global') {
-                    // No override to remove; just open group picker
-                    setShowGroupPicker(true);
-                  }
-                  // selectedTier === 'group' → already active, nothing to do
-                }}
+              {/* Group Theme — dropdown always lives inside this row */}
+              <div
+                className={`flex items-center justify-between px-4 py-3.5 transition-colors
+                  ${effectiveTier === 'group'
+                    ? 'bg-indigo-950/40'
+                    : 'hover:bg-gray-800/50 cursor-pointer'}`}
+                onClick={() => handleTierClick('group')}
               >
-                {(selectedTier === 'group' || showGroupPicker) && (
-                  <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <select
-                      className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
-                      value={room.themeGroupId ?? ''}
-                      disabled={tierBusy || !groups?.length}
-                      onChange={(e) => {
-                        groupMutation.mutate(e.target.value ? Number(e.target.value) : null);
-                        setShowGroupPicker(false);
-                      }}
-                    >
-                      <option value="">{groups?.length ? 'No group' : 'No groups yet'}</option>
-                      {groups?.map((g) => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
-                    {currentGroup && (
-                      <Link
-                        to={`/admin/groups/${currentGroup.id}`}
-                        className="btn-secondary text-xs"
-                      >
-                        Go to Group →
-                      </Link>
-                    )}
+                {/* Left: indicator + text */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${effectiveTier === 'group' ? 'bg-indigo-400' : 'bg-gray-700'}`} />
+                  <div className="min-w-0">
+                    <p className={`text-sm font-medium ${effectiveTier === 'group' ? 'text-white' : 'text-gray-400'}`}>
+                      Group Theme
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {currentGroup
+                        ? `${currentGroup.name}${currentGroup.usingGlobal ? '' : ' — custom theme'}`
+                        : pendingGroup
+                          ? 'Select a group →'
+                          : 'Apply a shared theme from a group'}
+                    </p>
                   </div>
-                )}
-              </TierRow>
+                </div>
 
-              {/* Tier 3 — Global */}
+                {/* Right: group dropdown + optional Go to Group link */}
+                <div
+                  className="flex items-center gap-2 ml-4 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <select
+                    className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+                    value={room.themeGroupId ?? ''}
+                    disabled={tierBusy || !groups?.length}
+                    onChange={(e) => {
+                      const gid = e.target.value ? Number(e.target.value) : null;
+                      groupMutation.mutate(gid);
+                      setPendingGroup(false);
+                    }}
+                  >
+                    <option value="">{groups?.length ? 'No group' : 'No groups yet'}</option>
+                    {groups?.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                  {currentGroup && effectiveTier === 'group' && (
+                    <Link
+                      to={`/admin/groups/${currentGroup.id}`}
+                      className="btn-secondary text-xs"
+                    >
+                      Go to Group →
+                    </Link>
+                  )}
+                </div>
+              </div>
+
+              {/* Global Theme */}
               <TierRow
-                selected={selectedTier === 'global'}
+                selected={effectiveTier === 'global'}
                 busy={tierBusy}
+                onClick={() => handleTierClick('global')}
                 label="Global Theme"
                 description={
-                  selectedTier === 'global'
-                    ? 'Active — fallback for all rooms'
-                    : 'Apply the site-wide default theme'
+                  effectiveTier === 'global'
+                    ? 'Active — using the system-wide default'
+                    : 'Use the system-wide default theme'
                 }
-                onClick={() => {
-                  if (selectedTier !== 'global') {
-                    setShowGroupPicker(false);
-                    clearAllTiers.mutate();
-                  }
-                }}
               >
-                {selectedTier === 'global' && (
+                {effectiveTier === 'global' && (
                   <Link
                     to="/admin/theme"
                     className="btn-secondary text-xs shrink-0"
