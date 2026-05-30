@@ -13,6 +13,9 @@ import { RoomDetailPage } from './pages/RoomDetailPage.tsx';
 import { TabletsPage } from './pages/TabletsPage.tsx';
 import { ThemePage } from './pages/ThemePage.tsx';
 import { RoomThemePage } from './pages/RoomThemePage.tsx';
+import { ThemeGroupsPage } from './pages/ThemeGroupsPage.tsx';
+import { ThemeGroupDetailPage } from './pages/ThemeGroupDetailPage.tsx';
+import { ThemeGroupThemePage } from './pages/ThemeGroupThemePage.tsx';
 import { SystemPage } from './pages/SystemPage.tsx';
 
 const queryClient = new QueryClient({
@@ -66,6 +69,9 @@ function AdminRoutes() {
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="rooms/:id" element={<RoomDetailPage />} />
         <Route path="rooms/:id/theme" element={<RoomThemePage />} />
+        <Route path="groups" element={<ThemeGroupsPage />} />
+        <Route path="groups/:id" element={<ThemeGroupDetailPage />} />
+        <Route path="groups/:id/theme" element={<ThemeGroupThemePage />} />
         <Route path="tablets" element={<TabletsPage />} />
         <Route path="theme" element={<ThemePage />} />
         <Route path="system" element={<SystemPage />} />

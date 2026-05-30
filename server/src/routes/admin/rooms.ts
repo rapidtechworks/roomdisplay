@@ -23,11 +23,12 @@ function isValidSlug(slug: string): boolean {
 
 const createRoomSchema = z.object({
   displayName:        z.string().min(1).max(100),
-  slug:               z.string().optional(),   // auto-generated if omitted
+  slug:               z.string().optional(),
   calendarSourceId:   z.number().int().positive(),
   externalCalendarId: z.string().min(1),
   timeZone:           z.string().min(1).default('America/Chicago'),
   themeOverrideId:    z.number().int().positive().nullable().default(null),
+  themeGroupId:       z.number().int().positive().nullable().default(null),
 });
 
 const updateRoomSchema = z.object({
@@ -37,6 +38,7 @@ const updateRoomSchema = z.object({
   externalCalendarId: z.string().min(1).optional(),
   timeZone:           z.string().min(1).optional(),
   themeOverrideId:    z.number().int().positive().nullable().optional(),
+  themeGroupId:       z.number().int().positive().nullable().optional(),
 });
 
 // ─── Route registration ───────────────────────────────────────────────────────
@@ -53,7 +55,7 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
       .select([
         'r.id', 'r.slug', 'r.display_name', 'r.time_zone',
         'r.calendar_source_id', 'r.external_calendar_id',
-        'r.theme_override_id', 'r.background_image_path', 'r.created_at',
+        'r.theme_override_id', 'r.theme_group_id', 'r.background_image_path', 'r.created_at',
         'cs.display_name as source_name', 'cs.type as source_type',
       ])
       .orderBy('r.display_name', 'asc')
@@ -68,6 +70,7 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
         calendarSourceId:   r.calendar_source_id,
         externalCalendarId: r.external_calendar_id,
         themeOverrideId:    r.theme_override_id,
+        themeGroupId:       r.theme_group_id,
         backgroundImagePath: r.background_image_path,
         createdAt:          r.created_at,
         source: {
@@ -90,7 +93,7 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
       });
     }
 
-    const { displayName, calendarSourceId, externalCalendarId, timeZone, themeOverrideId } = parsed.data;
+    const { displayName, calendarSourceId, externalCalendarId, timeZone, themeOverrideId, themeGroupId } = parsed.data;
 
     // Resolve slug
     const slug = parsed.data.slug
@@ -141,6 +144,7 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
         external_calendar_id:  externalCalendarId,
         time_zone:             timeZone,
         theme_override_id:     themeOverrideId,
+        theme_group_id:        themeGroupId,
         background_image_path: null,
         created_at:            new Date().toISOString(),
       })
@@ -170,7 +174,7 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
         .select([
           'r.id', 'r.slug', 'r.display_name', 'r.time_zone',
           'r.calendar_source_id', 'r.external_calendar_id',
-          'r.theme_override_id', 'r.background_image_path', 'r.created_at',
+          'r.theme_override_id', 'r.theme_group_id', 'r.background_image_path', 'r.created_at',
           'cs.display_name as source_name', 'cs.type as source_type',
         ])
         .where('r.id', '=', id)
@@ -198,6 +202,7 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
         calendarSourceId:    room.calendar_source_id,
         externalCalendarId:  room.external_calendar_id,
         themeOverrideId:     room.theme_override_id,
+        themeGroupId:        room.theme_group_id,
         backgroundImagePath: room.background_image_path,
         createdAt:           room.created_at,
         source: {
@@ -238,12 +243,13 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
       const updates: Record<string, unknown> = {};
       const {
         displayName, slug, calendarSourceId,
-        externalCalendarId, timeZone, themeOverrideId,
+        externalCalendarId, timeZone, themeOverrideId, themeGroupId,
       } = parsed.data;
 
       if (displayName        !== undefined) updates['display_name']          = displayName;
       if (timeZone           !== undefined) updates['time_zone']             = timeZone;
       if (themeOverrideId    !== undefined) updates['theme_override_id']     = themeOverrideId;
+      if (themeGroupId       !== undefined) updates['theme_group_id']        = themeGroupId;
       if (calendarSourceId   !== undefined) updates['calendar_source_id']   = calendarSourceId;
       if (externalCalendarId !== undefined) updates['external_calendar_id'] = externalCalendarId;
 

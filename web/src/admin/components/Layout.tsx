@@ -7,6 +7,7 @@ const NAV = [
   { to: '/admin',          label: 'Dashboard', exact: true },
   { to: '/admin/sources',  label: 'Sources',   exact: false },
   { to: '/admin/rooms',    label: 'Rooms',     exact: false },
+  { to: '/admin/groups',   label: 'Groups',    exact: false },
   { to: '/admin/tablets',  label: 'Devices',   exact: false },
   { to: '/admin/theme',    label: 'Theme',     exact: false },
 ];

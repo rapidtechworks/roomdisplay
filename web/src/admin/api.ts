@@ -122,9 +122,23 @@ export interface Room {
   calendarSourceId: number;
   externalCalendarId: string;
   themeOverrideId: number | null;
+  themeGroupId: number | null;
   backgroundImagePath: string | null;
   createdAt: string;
   source: { id: number; name: string; type: string };
+}
+
+export interface ThemeGroup {
+  id: number;
+  name: string;
+  themeId: number | null;
+  usingGlobal: boolean;
+  roomCount: number;
+  createdAt: string;
+}
+
+export interface ThemeGroupDetail extends ThemeGroup {
+  rooms: { id: number; slug: string; displayName: string }[];
 }
 
 export interface WalkUp {
@@ -213,6 +227,17 @@ export const api = {
   deleteRoom:    (id: number)           => call<{ ok: boolean }>('DELETE', `/api/admin/rooms/${id}`),
   getRoomEvents: (id: number, days = 14) => call<RoomEvent[]>('GET', `/api/admin/rooms/${id}/events?days=${days}`),
   deleteWalkUp:  (roomId: number, walkupId: number) => call<{ ok: boolean }>('DELETE', `/api/admin/rooms/${roomId}/walkups/${walkupId}`),
+
+  // Theme Groups
+  getThemeGroups:       ()                => call<ThemeGroup[]>('GET',    '/api/admin/theme-groups'),
+  getThemeGroup:        (id: number)      => call<ThemeGroupDetail>('GET', `/api/admin/theme-groups/${id}`),
+  createThemeGroup:     (name: string)    => call<{ id: number; name: string }>('POST', '/api/admin/theme-groups', { name }),
+  updateThemeGroup:     (id: number, data: { name?: string }) => call<{ ok: boolean }>('PATCH', `/api/admin/theme-groups/${id}`, data),
+  deleteThemeGroup:     (id: number)      => call<{ ok: boolean }>('DELETE', `/api/admin/theme-groups/${id}`),
+  getThemeGroupTheme:   (id: number)      => call<RoomThemeResponse>('GET',    `/api/admin/theme-groups/${id}/theme`),
+  enableThemeGroupTheme:(id: number)      => call<{ themeId: number; settings: Theme }>('POST', `/api/admin/theme-groups/${id}/theme`),
+  updateThemeGroupTheme:(id: number, data: Partial<Theme>) => call<{ ok: boolean }>('PATCH', `/api/admin/theme-groups/${id}/theme`, data),
+  disableThemeGroupTheme:(id: number)     => call<{ ok: boolean }>('DELETE', `/api/admin/theme-groups/${id}/theme`),
 
   // Themes
   getGlobalTheme:    ()                                  => call<ThemeResponse>('GET',   '/api/admin/themes/global'),

@@ -19,7 +19,12 @@ function parseTheme(json: string): Theme {
   }
 }
 
-export async function loadTheme(themeOverrideId: number | null): Promise<Theme> {
+// Resolution order: room override → group theme → global theme → DEFAULT_THEME
+export async function loadTheme(
+  themeOverrideId: number | null,
+  themeGroupId: number | null = null,
+): Promise<Theme> {
+  // 1. Room-level override
   if (themeOverrideId !== null) {
     const row = await db
       .selectFrom('themes')
@@ -29,6 +34,24 @@ export async function loadTheme(themeOverrideId: number | null): Promise<Theme> 
     if (row) return parseTheme(row.settings_json);
   }
 
+  // 2. Group-level theme
+  if (themeGroupId !== null) {
+    const group = await db
+      .selectFrom('theme_groups')
+      .select('theme_id')
+      .where('id', '=', themeGroupId)
+      .executeTakeFirst();
+    if (group?.theme_id !== null && group?.theme_id !== undefined) {
+      const row = await db
+        .selectFrom('themes')
+        .select('settings_json')
+        .where('id', '=', group.theme_id)
+        .executeTakeFirst();
+      if (row) return parseTheme(row.settings_json);
+    }
+  }
+
+  // 3. Global theme
   const globalRow = await db
     .selectFrom('themes')
     .select('settings_json')
@@ -45,7 +68,7 @@ export async function loadTheme(themeOverrideId: number | null): Promise<Theme> 
 export async function buildRoomState(slug: string): Promise<RoomState | null> {
   const room = await db
     .selectFrom('rooms')
-    .select(['id', 'slug', 'display_name', 'time_zone', 'theme_override_id'])
+    .select(['id', 'slug', 'display_name', 'time_zone', 'theme_override_id', 'theme_group_id'])
     .where('slug', '=', slug)
     .executeTakeFirst();
 
@@ -72,7 +95,7 @@ export async function buildRoomState(slug: string): Promise<RoomState | null> {
     allDay:   r.all_day === 1,
   }));
 
-  const theme = await loadTheme(room.theme_override_id);
+  const theme = await loadTheme(room.theme_override_id, room.theme_group_id);
 
   return {
     version:  1,

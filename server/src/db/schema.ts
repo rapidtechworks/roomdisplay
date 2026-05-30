@@ -18,6 +18,19 @@ export type CalendarSource = Selectable<CalendarSourcesTable>;
 export type NewCalendarSource = Insertable<CalendarSourcesTable>;
 export type CalendarSourceUpdate = Updateable<CalendarSourcesTable>;
 
+// ─── theme_groups ─────────────────────────────────────────────────────────────
+
+export interface ThemeGroupsTable {
+  id: Generated<number>;
+  name: string;
+  theme_id: number | null;          // FK → themes (null = use global)
+  created_at: string;
+}
+
+export type ThemeGroup = Selectable<ThemeGroupsTable>;
+export type NewThemeGroup = Insertable<ThemeGroupsTable>;
+export type ThemeGroupUpdate = Updateable<ThemeGroupsTable>;
+
 // ─── rooms ───────────────────────────────────────────────────────────────────
 
 export interface RoomsTable {
@@ -27,7 +40,8 @@ export interface RoomsTable {
   calendar_source_id: number;       // FK → calendar_sources
   external_calendar_id: string;     // PCO resource ID or iCal source URL
   time_zone: string;                // IANA tz, e.g. America/Chicago
-  theme_override_id: number | null; // FK → themes (null = use global)
+  theme_override_id: number | null; // FK → themes (null = use group or global)
+  theme_group_id: number | null;    // FK → theme_groups (null = use global)
   background_image_path: string | null;
   created_at: string;
 }
@@ -119,6 +133,7 @@ export interface DB {
   rooms: RoomsTable;
   bookings_cache: BookingsCacheTable;
   walk_ups: WalkUpsTable;
+  theme_groups: ThemeGroupsTable;
   themes: ThemesTable;
   tablets: TabletsTable;
   admin_config: AdminConfigTable;
