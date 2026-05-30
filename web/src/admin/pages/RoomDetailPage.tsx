@@ -459,9 +459,6 @@ export function RoomDetailPage() {
                     transformOrigin: 'top left',
                   }}
                 />
-                {!isOnline && (
-                  <div className="absolute inset-0 bg-gray-950/40" />
-                )}
               </div>
             </div>
           </div>
