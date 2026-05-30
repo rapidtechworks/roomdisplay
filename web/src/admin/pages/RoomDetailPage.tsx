@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type WalkUp, type RoomEvent, type Tablet } from '../api.ts';
@@ -60,26 +60,39 @@ export function RoomDetailPage() {
   const screenH       = Math.round(IFRAME_H * previewScale);
 
   // ── Theme tier mutations ────────────────────────────────────────────────────
-  // pendingGroup: user clicked Group row but hasn't picked a group yet
-  const [pendingGroup, setPendingGroup] = useState(false);
+  // Single composite mutation: set room to a specific tier, with side effects.
+  const setTier = useMutation({
+    mutationFn: async (tier: 'room' | 'group' | 'global') => {
+      if (!room) return;
+      const hasOverride = room.themeOverrideId !== null;
+      const hasGroup    = room.themeGroupId !== null;
 
-  const enableOverride = useMutation({
-    mutationFn: () => api.enableRoomTheme(roomId),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['room', roomId] }),
-  });
-
-  const disableOverride = useMutation({
-    mutationFn: () => api.disableRoomTheme(roomId),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['room', roomId] }),
-  });
-
-  const clearAllTiers = useMutation({
-    mutationFn: async ({ hasOverride }: { hasOverride: boolean }) => {
-      if (hasOverride) await api.disableRoomTheme(roomId);
-      await api.updateRoom(roomId, { themeGroupId: null });
+      if (tier === 'room') {
+        if (!hasOverride) await api.enableRoomTheme(roomId);
+      } else if (tier === 'group') {
+        if (hasOverride) await api.disableRoomTheme(roomId);
+      } else {
+        if (hasOverride) await api.disableRoomTheme(roomId);
+        if (hasGroup)    await api.updateRoom(roomId, { themeGroupId: null });
+      }
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['room', roomId] });
+      void qc.invalidateQueries({ queryKey: ['room',  roomId] });
+      void qc.invalidateQueries({ queryKey: ['rooms'] });
+    },
+  });
+
+  // Assigning a group also flips room into Group tier (clears any override).
+  const assignGroup = useMutation({
+    mutationFn: async (gid: number | null) => {
+      if (!room) return;
+      if (gid !== null && room.themeOverrideId !== null) {
+        await api.disableRoomTheme(roomId);
+      }
+      await api.updateRoom(roomId, { themeGroupId: gid });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['room',  roomId] });
       void qc.invalidateQueries({ queryKey: ['rooms'] });
     },
   });
@@ -112,15 +125,6 @@ export function RoomDetailPage() {
       setEditingTz(false);
     },
     onError: (err) => setEditError(err instanceof ApiError ? err.message : 'Save failed.'),
-  });
-
-  // ── Group assignment ────────────────────────────────────────────────────────
-  const groupMutation = useMutation({
-    mutationFn: (themeGroupId: number | null) => api.updateRoom(roomId, { themeGroupId }),
-    onSuccess:  () => {
-      void qc.invalidateQueries({ queryKey: ['room', roomId] });
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-    },
   });
 
   // ── Walk-up cancel ──────────────────────────────────────────────────────────
@@ -159,32 +163,19 @@ export function RoomDetailPage() {
 
   const currentGroup = groups?.find((g) => g.id === room.themeGroupId);
 
-  // Tier derived from server state
-  const serverTier: 'room' | 'group' | 'global' =
+  // Tier is fully derived from server state — no client-side "pending" mode.
+  const activeTier: 'room' | 'group' | 'global' =
     room.themeOverrideId !== null ? 'room'  :
     room.themeGroupId    !== null ? 'group' : 'global';
 
-  // effectiveTier: 'group' also when user clicked the Group row but hasn't picked yet
-  const effectiveTier = pendingGroup ? 'group' : serverTier;
-
-  const tierBusy =
-    enableOverride.isPending || disableOverride.isPending ||
-    clearAllTiers.isPending  || groupMutation.isPending;
+  const tierBusy = setTier.isPending || assignGroup.isPending;
 
   function handleTierClick(tier: 'room' | 'group' | 'global') {
-    if (!room || tier === effectiveTier || tierBusy) return;
-    const hasOverride = room.themeOverrideId !== null;
-    if (tier === 'room') {
-      setPendingGroup(false);
-      enableOverride.mutate();
-    } else if (tier === 'group') {
-      // Remove room override if present (group or pending-group becomes active)
-      if (hasOverride) disableOverride.mutate();
-      if (room.themeGroupId === null) setPendingGroup(true);
-    } else {
-      setPendingGroup(false);
-      clearAllTiers.mutate({ hasOverride });
-    }
+    if (!room || tier === activeTier || tierBusy) return;
+    // Clicking "Group Theme" with no group assigned is a no-op — user must
+    // pick one from the dropdown (which is always visible).
+    if (tier === 'group' && room.themeGroupId === null) return;
+    setTier.mutate(tier);
   }
 
   return (
@@ -294,109 +285,69 @@ export function RoomDetailPage() {
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
               Theme Control
             </h2>
-            <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
+            <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
 
               {/* Room Override */}
               <TierRow
-                selected={effectiveTier === 'room'}
+                active={activeTier === 'room'}
                 busy={tierBusy}
-                onClick={() => handleTierClick('room')}
                 label="Room Override"
-                description={
-                  effectiveTier === 'room'
-                    ? 'Active — this room has its own custom theme'
-                    : 'Give this room its own colors and fonts'
-                }
-              >
-                {effectiveTier === 'room' && (
-                  <Link
-                    to={`/admin/rooms/${roomId}/theme`}
-                    className="btn-primary text-xs shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Edit Theme →
-                  </Link>
-                )}
-              </TierRow>
-
-              {/* Group Theme — dropdown always lives inside this row */}
-              <div
-                className={`flex items-center justify-between px-4 py-3.5 transition-colors
-                  ${effectiveTier === 'group'
-                    ? 'bg-indigo-950/40'
-                    : 'hover:bg-gray-800/50 cursor-pointer'}`}
-                onClick={() => handleTierClick('group')}
-              >
-                {/* Left: indicator + text */}
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${effectiveTier === 'group' ? 'bg-indigo-400' : 'bg-gray-700'}`} />
-                  <div className="min-w-0">
-                    <p className={`text-sm font-medium ${effectiveTier === 'group' ? 'text-white' : 'text-gray-400'}`}>
-                      Group Theme
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {currentGroup
-                        ? `${currentGroup.name}${currentGroup.usingGlobal ? '' : ' — custom theme'}`
-                        : pendingGroup
-                          ? 'Select a group →'
-                          : 'Apply a shared theme from a group'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Right: group dropdown + optional Go to Group link */}
-                <div
-                  className="flex items-center gap-2 ml-4 shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <select
-                    className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
-                    value={room.themeGroupId ?? ''}
-                    disabled={tierBusy || !groups?.length}
-                    onChange={(e) => {
-                      const gid = e.target.value ? Number(e.target.value) : null;
-                      groupMutation.mutate(gid);
-                      setPendingGroup(false);
-                    }}
-                  >
-                    <option value="">{groups?.length ? 'No group' : 'No groups yet'}</option>
-                    {groups?.map((g) => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </select>
-                  {currentGroup && effectiveTier === 'group' && (
-                    <Link
-                      to={`/admin/groups/${currentGroup.id}`}
-                      className="btn-secondary text-xs"
-                    >
-                      Go to Group →
+                onClick={() => handleTierClick('room')}
+                trailing={
+                  activeTier === 'room' && (
+                    <Link to={`/admin/rooms/${roomId}/theme`} className="btn-secondary">
+                      Edit Theme →
                     </Link>
-                  )}
-                </div>
-              </div>
+                  )
+                }
+              />
+
+              {/* Group Theme — dropdown is always visible */}
+              <TierRow
+                active={activeTier === 'group'}
+                busy={tierBusy}
+                disabled={room.themeGroupId === null}
+                label="Group Theme"
+                onClick={() => handleTierClick('group')}
+                trailing={
+                  <>
+                    <select
+                      className="input max-w-[200px]"
+                      value={room.themeGroupId ?? ''}
+                      disabled={tierBusy || !groups?.length}
+                      onChange={(e) => {
+                        const gid = e.target.value ? Number(e.target.value) : null;
+                        assignGroup.mutate(gid);
+                      }}
+                    >
+                      <option value="">{groups?.length ? 'Select group…' : 'No groups yet'}</option>
+                      {groups?.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                    {currentGroup && activeTier === 'group' && (
+                      <Link to={`/admin/groups/${currentGroup.id}`} className="btn-secondary">
+                        Go to Group →
+                      </Link>
+                    )}
+                  </>
+                }
+              />
 
               {/* Global Theme */}
               <TierRow
-                selected={effectiveTier === 'global'}
+                active={activeTier === 'global'}
                 busy={tierBusy}
-                onClick={() => handleTierClick('global')}
                 label="Global Theme"
-                description={
-                  effectiveTier === 'global'
-                    ? 'Active — using the system-wide default'
-                    : 'Use the system-wide default theme'
+                onClick={() => handleTierClick('global')}
+                trailing={
+                  activeTier === 'global' && (
+                    <Link to="/admin/theme" className="btn-secondary">
+                      Go to Theme →
+                    </Link>
+                  )
                 }
-              >
-                {effectiveTier === 'global' && (
-                  <Link
-                    to="/admin/theme"
-                    className="btn-secondary text-xs shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Edit Global →
-                  </Link>
-                )}
-              </TierRow>
+              />
 
             </div>
           </section>
@@ -545,43 +496,27 @@ export function RoomDetailPage() {
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
 interface TierRowProps {
-  selected:    boolean;
-  busy:        boolean;
-  label:       string;
-  description: string;
-  onClick:     () => void;
-  children?:   React.ReactNode;
+  active:    boolean;
+  busy:      boolean;
+  disabled?: boolean;
+  label:     string;
+  onClick:   () => void;
+  trailing?: ReactNode;
 }
 
-function TierRow({ selected, busy, label, description, onClick, children }: TierRowProps) {
+function TierRow({ active, busy, disabled = false, label, onClick, trailing }: TierRowProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy || selected}
-      className={`w-full flex items-center justify-between px-4 py-3.5 text-left transition-colors
-        disabled:cursor-default
-        ${selected ? 'bg-indigo-950/40' : 'hover:bg-gray-800/50 cursor-pointer'}`}
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <div
-          className={`h-2.5 w-2.5 shrink-0 rounded-full transition-colors ${
-            selected ? 'bg-indigo-400' : 'bg-gray-700'
-          }`}
-        />
-        <div className="min-w-0">
-          <p className={`text-sm font-medium ${selected ? 'text-white' : 'text-gray-400'}`}>
-            {label}
-          </p>
-          <p className="text-xs text-gray-500">{description}</p>
-        </div>
-      </div>
-      {children && (
-        <div className="flex items-center gap-2 ml-4">
-          {children}
-        </div>
-      )}
-    </button>
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={busy || active || disabled}
+        className={`flex-1 ${active ? 'btn-primary' : 'btn-secondary'} disabled:cursor-default`}
+      >
+        {label}
+      </button>
+      {trailing && <div className="flex items-center gap-2">{trailing}</div>}
+    </div>
   );
 }
 
