@@ -27,42 +27,55 @@ export function RoomPreviewCard({ room, tablets, onClick }: Props) {
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col items-start text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-xl"
+      className="group flex flex-col items-start text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-[20px]"
     >
-      {/* Preview frame */}
+      {/* Tablet body — thin metallic silver shell */}
       <div
-        className="relative overflow-hidden rounded-xl ring-1 ring-gray-800 transition-all group-hover:ring-indigo-500/60 group-hover:shadow-lg group-hover:shadow-indigo-950/50"
-        style={{ width: CARD_W, height: CARD_H }}
+        className="rounded-[20px] p-[3px] shadow-xl shadow-black/60 transition-shadow group-hover:shadow-indigo-950/60"
+        style={{
+          background: 'linear-gradient(145deg, #d4d8de 0%, #a8adb5 40%, #8e9299 100%)',
+          boxShadow: '0 0 0 1px rgba(255,255,255,0.25) inset, 0 20px 40px rgba(0,0,0,0.55)',
+        }}
       >
-        <iframe
-          src={`/display/${room.slug}?preview=1`}
-          title={room.displayName}
-          tabIndex={-1}
-          className="absolute top-0 left-0 border-none pointer-events-none select-none"
-          style={{
-            width:           IFRAME_W,
-            height:          IFRAME_H,
-            transform:       `scale(${SCALE})`,
-            transformOrigin: 'top left',
-          }}
-        />
+        {/* Bezel — dark surround inside the silver body */}
+        <div className="rounded-[18px] bg-gray-950 p-[8px]">
 
-        {/* Dim overlay when no tablet is actively displaying this room */}
-        {!isOnline && (
-          <div className="absolute inset-0 bg-gray-950/50" />
-        )}
+          {/* Screen area */}
+          <div
+            className="relative overflow-hidden rounded-[6px]"
+            style={{ width: CARD_W, height: CARD_H }}
+          >
+            <iframe
+              src={`/display/${room.slug}?preview=1`}
+              title={room.displayName}
+              tabIndex={-1}
+              className="absolute top-0 left-0 border-none pointer-events-none select-none"
+              style={{
+                width:           IFRAME_W,
+                height:          IFRAME_H,
+                transform:       `scale(${SCALE})`,
+                transformOrigin: 'top left',
+              }}
+            />
 
-        {/* Hover drill-in hint */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-          <span className="rounded-lg bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
-            Edit Room →
-          </span>
+            {/* Dim overlay when no tablet is actively displaying this room */}
+            {!isOnline && (
+              <div className="absolute inset-0 bg-gray-950/50" />
+            )}
+
+            {/* Hover drill-in hint */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="rounded-lg bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+                Edit Room →
+              </span>
+            </div>
+          </div>
+
         </div>
       </div>
 
       {/* Room label row */}
-      <div className="mt-2 flex w-full items-center gap-2 px-0.5">
-        {/* Connection status dot */}
+      <div className="mt-2.5 flex w-full items-center gap-2 px-0.5">
         <span
           className={`h-2 w-2 shrink-0 rounded-full ${
             isOnline
