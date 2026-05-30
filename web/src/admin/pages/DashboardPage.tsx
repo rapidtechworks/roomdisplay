@@ -22,7 +22,7 @@ export function DashboardPage() {
   const ungrouped: typeof rooms.data = [];
 
   for (const room of rooms.data ?? []) {
-    if (room.themeGroupId !== null && room.themeGroupId !== undefined) {
+    if (room.themeTier === 'group' && room.themeGroupId !== null) {
       const bucket = roomsByGroup.get(room.themeGroupId) ?? [];
       bucket.push(room);
       roomsByGroup.set(room.themeGroupId, bucket);
