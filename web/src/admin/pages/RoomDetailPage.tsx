@@ -285,7 +285,7 @@ export function RoomDetailPage() {
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
               Theme Control
             </h2>
-            <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
+            <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
 
               {/* Room Override */}
               <TierRow
@@ -293,46 +293,48 @@ export function RoomDetailPage() {
                 busy={tierBusy}
                 label="Room Override"
                 onClick={() => handleTierClick('room')}
-                trailing={
-                  activeTier === 'room' && (
-                    <Link to={`/admin/rooms/${roomId}/theme`} className="btn-secondary">
-                      Edit Theme →
-                    </Link>
-                  )
-                }
-              />
+              >
+                {activeTier === 'room' && (
+                  <Link
+                    to={`/admin/rooms/${roomId}/theme`}
+                    className="btn-primary text-xs shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Edit Theme →
+                  </Link>
+                )}
+              </TierRow>
 
-              {/* Group Theme — dropdown is always visible */}
+              {/* Group Theme — dropdown always visible, stopPropagation so clicking it doesn't trigger the row */}
               <TierRow
                 active={activeTier === 'group'}
                 busy={tierBusy}
                 disabled={room.themeGroupId === null}
                 label="Group Theme"
                 onClick={() => handleTierClick('group')}
-                trailing={
-                  <>
-                    <select
-                      className="input max-w-[200px]"
-                      value={room.themeGroupId ?? ''}
-                      disabled={tierBusy || !groups?.length}
-                      onChange={(e) => {
-                        const gid = e.target.value ? Number(e.target.value) : null;
-                        assignGroup.mutate(gid);
-                      }}
-                    >
-                      <option value="">{groups?.length ? 'Select group…' : 'No groups yet'}</option>
-                      {groups?.map((g) => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
-                    {currentGroup && activeTier === 'group' && (
-                      <Link to={`/admin/groups/${currentGroup.id}`} className="btn-secondary">
-                        Go to Group →
-                      </Link>
-                    )}
-                  </>
-                }
-              />
+              >
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <select
+                    className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+                    value={room.themeGroupId ?? ''}
+                    disabled={tierBusy || !groups?.length}
+                    onChange={(e) => {
+                      const gid = e.target.value ? Number(e.target.value) : null;
+                      assignGroup.mutate(gid);
+                    }}
+                  >
+                    <option value="">{groups?.length ? 'Select group…' : 'No groups yet'}</option>
+                    {groups?.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                  {currentGroup && activeTier === 'group' && (
+                    <Link to={`/admin/groups/${currentGroup.id}`} className="btn-secondary text-xs">
+                      Go to Group →
+                    </Link>
+                  )}
+                </div>
+              </TierRow>
 
               {/* Global Theme */}
               <TierRow
@@ -340,14 +342,17 @@ export function RoomDetailPage() {
                 busy={tierBusy}
                 label="Global Theme"
                 onClick={() => handleTierClick('global')}
-                trailing={
-                  activeTier === 'global' && (
-                    <Link to="/admin/theme" className="btn-secondary">
-                      Go to Theme →
-                    </Link>
-                  )
-                }
-              />
+              >
+                {activeTier === 'global' && (
+                  <Link
+                    to="/admin/theme"
+                    className="btn-secondary text-xs shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Go to Theme →
+                  </Link>
+                )}
+              </TierRow>
 
             </div>
           </section>
@@ -501,22 +506,31 @@ interface TierRowProps {
   disabled?: boolean;
   label:     string;
   onClick:   () => void;
-  trailing?: ReactNode;
+  children?: ReactNode;
 }
 
-function TierRow({ active, busy, disabled = false, label, onClick, trailing }: TierRowProps) {
+function TierRow({ active, busy, disabled = false, label, onClick, children }: TierRowProps) {
   return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={busy || active || disabled}
-        className={`flex-1 ${active ? 'btn-primary' : 'btn-secondary'} disabled:cursor-default`}
-      >
-        {label}
-      </button>
-      {trailing && <div className="flex items-center gap-2">{trailing}</div>}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy || active || disabled}
+      className={`w-full flex items-center justify-between px-4 py-3.5 text-left transition-colors
+        disabled:cursor-default
+        ${active ? 'bg-indigo-950/40' : 'hover:bg-gray-800/50'}`}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`h-2.5 w-2.5 shrink-0 rounded-full transition-colors ${active ? 'bg-indigo-400' : 'bg-gray-700'}`} />
+        <p className={`text-sm font-medium ${active ? 'text-white' : 'text-gray-400'}`}>
+          {label}
+        </p>
+      </div>
+      {children && (
+        <div className="flex items-center gap-2 ml-4">
+          {children}
+        </div>
+      )}
+    </button>
   );
 }
 
