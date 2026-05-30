@@ -422,8 +422,8 @@ export function RoomDetailPage() {
           >
             <div className="rounded-[22px] bg-gray-950 p-[10px]">
               <div
-                className="relative overflow-hidden rounded-[8px]"
-                style={{ width: CARD_W, height: CARD_H }}
+                className="relative rounded-[8px]"
+                style={{ width: CARD_W, height: CARD_H, overflow: 'hidden', transform: 'translateZ(0)' }}
               >
                 <iframe
                   src={`/display/${room.slug}?preview=1`}

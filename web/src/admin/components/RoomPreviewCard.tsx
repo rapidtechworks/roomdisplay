@@ -42,8 +42,8 @@ export function RoomPreviewCard({ room, tablets, onClick }: Props) {
 
           {/* Screen area */}
           <div
-            className="relative overflow-hidden rounded-[6px]"
-            style={{ width: CARD_W, height: CARD_H }}
+            className="relative rounded-[6px]"
+            style={{ width: CARD_W, height: CARD_H, overflow: 'hidden', transform: 'translateZ(0)' }}
           >
             <iframe
               src={`/display/${room.slug}?preview=1`}
