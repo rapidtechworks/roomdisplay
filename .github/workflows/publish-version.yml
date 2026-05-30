@@ -1,0 +1,23 @@
+name: Publish version
+
+# Runs on every push to main — updates the public version gist so customer
+# deployments know a new version is available.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Publish commit hash to version gist
+        env:
+          GIST_ID:    ${{ secrets.VERSION_GIST_ID }}
+          GIST_TOKEN: ${{ secrets.VERSION_GIST_TOKEN }}
+        run: node scripts/publish-version.mjs
