@@ -40,6 +40,25 @@ function getGitInfo() {
   }
 }
 
+function getFullCommitHash(): string {
+  try {
+    return execSync('git rev-parse HEAD', { cwd: REPO_DIR, timeout: 5000 }).toString().trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+// ── Update-check cache ────────────────────────────────────────────────────────
+// Avoid hitting the version URL on every admin poll; cache for 10 minutes.
+
+interface UpdateCheckResult {
+  updateAvailable: boolean;
+  latestVersion:   string | null;
+  latestCommit:    string | null;
+}
+
+let _updateCheckCache: { result: UpdateCheckResult; expiresAt: number } | null = null;
+
 export async function registerSystemRoutes(server: FastifyInstance) {
 
   // ── GET /api/admin/system ─────────────────────────────────────────────────
@@ -90,5 +109,53 @@ export async function registerSystemRoutes(server: FastifyInstance) {
   // ── GET /api/admin/system/update/status ───────────────────────────────────
   server.get('/api/admin/system/update/status', async (_req, reply) => {
     return reply.send(readUpdateStatus());
+  });
+
+  // ── GET /api/admin/system/update-check ────────────────────────────────────
+  // Fetches the public version JSON and compares commit hashes.
+  // Returns immediately with { updateAvailable: false } if VERSION_CHECK_URL is not set.
+  server.get('/api/admin/system/update-check', async (_req, reply) => {
+    if (!config.VERSION_CHECK_URL) {
+      return reply.send({ updateAvailable: false, latestVersion: null, latestCommit: null });
+    }
+
+    // Serve cached result if still fresh
+    if (_updateCheckCache && Date.now() < _updateCheckCache.expiresAt) {
+      return reply.send(_updateCheckCache.result);
+    }
+
+    try {
+      const res = await fetch(config.VERSION_CHECK_URL, {
+        signal:  AbortSignal.timeout(5_000),
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (!res.ok) {
+        server.log.warn({ status: res.status, url: config.VERSION_CHECK_URL }, 'Version check URL returned non-OK');
+        return reply.send({ updateAvailable: false, latestVersion: null, latestCommit: null });
+      }
+
+      const remote = await res.json() as { commit?: string; version?: string };
+      const localHash = getFullCommitHash();
+
+      const remoteCommit = (remote.commit ?? '').trim();
+      const updateAvailable =
+        localHash !== 'unknown' &&
+        remoteCommit.length > 0 &&
+        remoteCommit !== localHash;
+
+      const result: UpdateCheckResult = {
+        updateAvailable,
+        latestVersion: remote.version ?? null,
+        latestCommit:  remoteCommit || null,
+      };
+
+      _updateCheckCache = { result, expiresAt: Date.now() + 10 * 60_000 };
+      return reply.send(result);
+
+    } catch (err) {
+      server.log.warn({ err }, 'Version check fetch failed');
+      return reply.send({ updateAvailable: false, latestVersion: null, latestCommit: null });
+    }
   });
 }

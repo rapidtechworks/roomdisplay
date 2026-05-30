@@ -10,6 +10,9 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().min(16),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
   DEFAULT_TIMEZONE: z.string().default('America/Chicago'),
+  // Optional public URL returning { version, commit } JSON — used to detect available updates.
+  // Host a public GitHub Gist or similar; no credentials required.
+  VERSION_CHECK_URL: z.string().url().optional(),
 });
 
 function loadConfig() {

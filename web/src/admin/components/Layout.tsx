@@ -11,7 +11,6 @@ const NAV = [
   { to: '/admin/theme',    label: 'Theme',     exact: false },
 ];
 
-// Poll for a newer git commit every 5 minutes
 const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 function useUpdateAvailable(): boolean {
@@ -20,30 +19,10 @@ function useUpdateAvailable(): boolean {
   useEffect(() => {
     async function check() {
       try {
-        const system = await api.getSystem();
-        // If update status is already ok/error/idle after a recent run,
-        // compare the commit hash to detect if GitHub has something newer.
-        // For now we surface "update available" when the last update status
-        // is not "ok" or there's a known newer hash — use a simple fetch of
-        // /api/admin/system which includes the local git hash, then compare
-        // against the remote. We skip the git fetch here (it's slow); instead
-        // we just show the button whenever the current hash is not "unknown"
-        // and the server is reachable. Clicking it will do the real check.
-        // A future improvement: hit GitHub API to compare commits.
-        //
-        // For now: show the button if the last update status is not fresh.
-        const s = system.updateStatus.status;
-        // Show button if never updated (idle) or last update was more than 1h ago
-        if (s === 'idle' || s === 'error') {
-          setUpdateAvailable(true);
-          return;
-        }
-        if (s === 'ok' && system.updateStatus.completedAt) {
-          const ageMs = Date.now() - new Date(system.updateStatus.completedAt).getTime();
-          setUpdateAvailable(ageMs > 60 * 60 * 1000); // show again after 1h
-        }
+        const result = await api.checkForUpdate();
+        setUpdateAvailable(result.updateAvailable);
       } catch {
-        // Server unreachable — don't show button
+        // Server unreachable — leave current state unchanged
       }
     }
 

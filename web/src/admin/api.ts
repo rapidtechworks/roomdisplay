@@ -247,9 +247,10 @@ export const api = {
   deleteTablet:  (uuid: string)                       => call<{ ok: boolean }>('DELETE', `/api/admin/tablets/${uuid}`),
 
   // System
-  getSystem:      () => call<SystemInfo>('GET',  '/api/admin/system'),
-  triggerUpdate:  () => call<{ message: string }>('POST', '/api/admin/system/update'),
-  getUpdateStatus: () => call<UpdateStatus>('GET', '/api/admin/system/update/status'),
+  getSystem:        () => call<SystemInfo>('GET',  '/api/admin/system'),
+  triggerUpdate:    () => call<{ message: string }>('POST', '/api/admin/system/update'),
+  getUpdateStatus:  () => call<UpdateStatus>('GET', '/api/admin/system/update/status'),
+  checkForUpdate:   () => call<UpdateCheckResult>('GET', '/api/admin/system/update-check'),
 };
 
 export interface GitVersion  { hash: string; subject: string; date: string; }
@@ -260,4 +261,9 @@ export interface UpdateStatus {
   startedAt?: string;
   completedAt?: string;
 }
-export interface SystemInfo  { version: GitVersion; updateStatus: UpdateStatus; repoDir: string; }
+export interface SystemInfo      { version: GitVersion; updateStatus: UpdateStatus; repoDir: string; }
+export interface UpdateCheckResult {
+  updateAvailable: boolean;
+  latestVersion:   string | null;
+  latestCommit:    string | null;
+}
