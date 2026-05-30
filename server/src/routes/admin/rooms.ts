@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../../db/index.js';
 import { requireAdmin } from '../../hooks/requireAdmin.js';
 import { syncSource } from '../../lib/syncSource.js';
+import { pushRoomState } from '../../lib/wsManager.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -283,8 +284,21 @@ export async function registerRoomsRoutes(server: FastifyInstance) {
         updates['slug'] = cleanSlug;
       }
 
+      const themeFieldChanged =
+        themeOverrideId !== undefined || themeGroupId !== undefined || themeTier !== undefined;
+
       if (Object.keys(updates).length > 0) {
         await db.updateTable('rooms').set(updates).where('id', '=', id).execute();
+      }
+
+      // Push updated state to connected tablets when theme fields changed.
+      if (themeFieldChanged) {
+        const updated = await db
+          .selectFrom('rooms')
+          .select('slug')
+          .where('id', '=', id)
+          .executeTakeFirst();
+        if (updated) pushRoomState(updated.slug).catch(() => { /* non-critical */ });
       }
 
       return reply.send({ ok: true });

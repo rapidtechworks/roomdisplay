@@ -104,9 +104,10 @@ export function useRoomSocket(slug: string, options?: { previewMode?: boolean })
     alive.current = true;
 
     if (previewMode) {
-      // Preview: REST polling only — no WebSocket, no tablet registration
+      // Preview: REST polling only — no WebSocket, no tablet registration.
+      // 3s interval keeps the preview feeling live without hammering the server.
       void fetchState();
-      pollRef.current = setInterval(() => void fetchState(), 30_000);
+      pollRef.current = setInterval(() => void fetchState(), 3_000);
       return () => {
         alive.current = false;
         stopPoll();
