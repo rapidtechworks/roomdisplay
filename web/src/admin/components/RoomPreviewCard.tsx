@@ -38,12 +38,12 @@ export function RoomPreviewCard({ room, tablets, onClick }: Props) {
         }}
       >
         {/* Bezel — dark surround inside the silver body */}
-        <div className="rounded-[18px] bg-gray-950 p-[8px]">
+        <div className="rounded-[18px] bg-gray-950 p-[8px] overflow-hidden">
 
           {/* Screen area */}
           <div
             className="relative rounded-[6px]"
-            style={{ width: CARD_W, height: CARD_H, overflow: 'hidden', transform: 'translateZ(0)' }}
+            style={{ width: CARD_W, height: CARD_H, overflow: 'hidden', clipPath: 'inset(0px round 6px)' }}
           >
             <iframe
               src={`/display/${room.slug}?preview=1`}

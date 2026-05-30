@@ -43,6 +43,11 @@ export function RoomDetailPage() {
     refetchInterval: 30_000,
   });
 
+  // ── Theme tier accordion ────────────────────────────────────────────────────
+  const [openTier, setOpenTier] = useState<'room' | 'group' | 'global' | null>(null);
+  const toggleTier = (tier: 'room' | 'group' | 'global') =>
+    setOpenTier((prev) => (prev === tier ? null : tier));
+
   // ── Edit state ──────────────────────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false);
   const [editName,    setEditName]    = useState('');
@@ -230,88 +235,89 @@ export function RoomDetailPage() {
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
               Theme Control
             </h2>
-            <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
+            <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
 
               {/* Tier 1 — Room Override */}
-              <div className={`flex items-center justify-between px-4 py-3.5 ${roomThemeActive ? 'bg-indigo-950/40' : ''}`}>
-                <div className="flex items-center gap-3">
-                  <TierIndicator active={roomThemeActive} />
-                  <div>
-                    <p className={`text-sm font-medium ${roomThemeActive ? 'text-white' : 'text-gray-400'}`}>
-                      Room Override
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {roomThemeActive ? 'Active — overrides group and global' : 'Not set'}
-                    </p>
-                  </div>
-                </div>
+              <TierRow
+                active={roomThemeActive}
+                open={openTier === 'room'}
+                onToggle={() => toggleTier('room')}
+                label="Room Override"
+                description={roomThemeActive ? 'Active — overrides group and global' : 'Not set'}
+              >
                 <Link
                   to={`/admin/rooms/${roomId}/theme`}
-                  className={`text-xs transition-colors ${roomThemeActive ? 'text-indigo-400 hover:text-indigo-300' : 'text-gray-500 hover:text-gray-300'}`}
+                  className="btn-primary text-xs"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {roomThemeActive ? 'Edit →' : 'Enable →'}
+                  {roomThemeActive ? 'Edit Theme →' : 'Enable Custom Theme →'}
                 </Link>
-              </div>
-
-              <div className="border-t border-gray-800" />
+              </TierRow>
 
               {/* Tier 2 — Group Theme */}
-              <div className={`flex items-center justify-between px-4 py-3.5 ${groupThemeActive ? 'bg-indigo-950/40' : ''}`}>
-                <div className="flex items-center gap-3 min-w-0">
-                  <TierIndicator active={groupThemeActive} />
-                  <div className="min-w-0">
-                    <p className={`text-sm font-medium ${groupThemeActive ? 'text-white' : 'text-gray-400'}`}>
-                      Group Theme
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {currentGroup
-                        ? currentGroup.usingGlobal
-                          ? `In "${currentGroup.name}" — using global theme`
-                          : `In "${currentGroup.name}" — custom group theme`
-                        : 'Not assigned to a group'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0 ml-3">
+              <TierRow
+                active={groupThemeActive}
+                open={openTier === 'group'}
+                onToggle={() => toggleTier('group')}
+                label="Group Theme"
+                description={
+                  currentGroup
+                    ? currentGroup.usingGlobal
+                      ? `In "${currentGroup.name}" — using global theme`
+                      : `In "${currentGroup.name}" — custom group theme`
+                    : 'Not assigned to a group'
+                }
+              >
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {/* Group picker / remove */}
+                  {room.themeGroupId !== null ? (
+                    <button
+                      onClick={() => groupMutation.mutate(null)}
+                      disabled={groupMutation.isPending}
+                      className="btn-secondary text-xs disabled:opacity-50"
+                    >
+                      Remove from group
+                    </button>
+                  ) : (
+                    <select
+                      className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+                      value=""
+                      disabled={groupMutation.isPending || !groups?.length}
+                      onChange={(e) => { if (e.target.value) groupMutation.mutate(Number(e.target.value)); }}
+                    >
+                      <option value="">{groups?.length ? 'Add to group…' : 'No groups yet'}</option>
+                      {groups?.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  )}
                   {currentGroup && (
                     <Link
                       to={`/admin/groups/${currentGroup.id}`}
-                      className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                      className="btn-secondary text-xs"
                     >
-                      Edit group →
+                      Go to Group →
                     </Link>
                   )}
-                  <GroupAssign
-                    currentGroupId={room.themeGroupId}
-                    groups={groups ?? []}
-                    isPending={groupMutation.isPending}
-                    onChange={(gid) => groupMutation.mutate(gid)}
-                  />
                 </div>
-              </div>
-
-              <div className="border-t border-gray-800" />
+              </TierRow>
 
               {/* Tier 3 — Global */}
-              <div className={`flex items-center justify-between px-4 py-3.5 ${globalActive ? 'bg-indigo-950/40' : ''}`}>
-                <div className="flex items-center gap-3">
-                  <TierIndicator active={globalActive} />
-                  <div>
-                    <p className={`text-sm font-medium ${globalActive ? 'text-white' : 'text-gray-400'}`}>
-                      Global Theme
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {globalActive ? 'Active — fallback for all rooms' : 'Overridden by higher tier'}
-                    </p>
-                  </div>
-                </div>
+              <TierRow
+                active={globalActive}
+                open={openTier === 'global'}
+                onToggle={() => toggleTier('global')}
+                label="Global Theme"
+                description={globalActive ? 'Active — fallback for all rooms' : 'Overridden by higher tier'}
+              >
                 <Link
                   to="/admin/theme"
-                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  className="btn-secondary text-xs"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  Edit global →
+                  Go to Theme →
                 </Link>
-              </div>
+              </TierRow>
 
             </div>
           </section>
@@ -420,10 +426,10 @@ export function RoomDetailPage() {
               boxShadow: '0 0 0 1px rgba(255,255,255,0.25) inset, 0 24px 48px rgba(0,0,0,0.65)',
             }}
           >
-            <div className="rounded-[22px] bg-gray-950 p-[10px]">
+            <div className="rounded-[22px] bg-gray-950 p-[10px] overflow-hidden">
               <div
                 className="relative rounded-[8px]"
-                style={{ width: CARD_W, height: CARD_H, overflow: 'hidden', transform: 'translateZ(0)' }}
+                style={{ width: CARD_W, height: CARD_H, overflow: 'hidden', clipPath: 'inset(0px round 8px)' }}
               >
                 <iframe
                   src={`/display/${room.slug}?preview=1`}
@@ -462,50 +468,51 @@ export function RoomDetailPage() {
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
-function TierIndicator({ active }: { active: boolean }) {
-  return (
-    <div
-      className={`h-2.5 w-2.5 shrink-0 rounded-full transition-colors ${
-        active ? 'bg-indigo-400' : 'bg-gray-700'
-      }`}
-    />
-  );
+interface TierRowProps {
+  active:      boolean;
+  open:        boolean;
+  onToggle:    () => void;
+  label:       string;
+  description: string;
+  children:    React.ReactNode;
 }
 
-interface GroupAssignProps {
-  currentGroupId: number | null;
-  groups: { id: number; name: string }[];
-  isPending: boolean;
-  onChange: (gid: number | null) => void;
-}
-
-function GroupAssign({ currentGroupId, groups, isPending, onChange }: GroupAssignProps) {
-  if (groups.length === 0) return null;
-
-  if (currentGroupId !== null) {
-    return (
-      <button
-        onClick={() => onChange(null)}
-        disabled={isPending}
-        className="text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50"
-      >
-        Remove from group
-      </button>
-    );
-  }
-
+function TierRow({ active, open, onToggle, label, description, children }: TierRowProps) {
   return (
-    <select
-      className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
-      value=""
-      disabled={isPending}
-      onChange={(e) => { if (e.target.value) onChange(Number(e.target.value)); }}
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-full flex items-center justify-between px-4 py-3.5 text-left transition-colors
+        ${open ? 'bg-gray-800/60' : 'hover:bg-gray-800/40'}
+        ${active && !open ? 'bg-indigo-950/30' : ''}`}
     >
-      <option value="">Add to group…</option>
-      {groups.map((g) => (
-        <option key={g.id} value={g.id}>{g.name}</option>
-      ))}
-    </select>
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className={`h-2.5 w-2.5 shrink-0 rounded-full transition-colors ${
+            active ? 'bg-indigo-400' : 'bg-gray-700'
+          }`}
+        />
+        <div className="min-w-0">
+          <p className={`text-sm font-medium ${active ? 'text-white' : 'text-gray-400'}`}>
+            {label}
+          </p>
+          <p className="text-xs text-gray-500">{description}</p>
+        </div>
+      </div>
+
+      {open ? (
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          {children}
+        </div>
+      ) : (
+        <svg
+          className="h-3.5 w-3.5 shrink-0 text-gray-600 ml-4"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      )}
+    </button>
   );
 }
 
