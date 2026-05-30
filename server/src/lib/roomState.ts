@@ -68,7 +68,7 @@ export async function loadTheme(
 export async function buildRoomState(slug: string): Promise<RoomState | null> {
   const room = await db
     .selectFrom('rooms')
-    .select(['id', 'slug', 'display_name', 'time_zone', 'theme_override_id', 'theme_group_id'])
+    .select(['id', 'slug', 'display_name', 'time_zone', 'theme_override_id', 'theme_group_id', 'theme_tier'])
     .where('slug', '=', slug)
     .executeTakeFirst();
 
@@ -95,7 +95,10 @@ export async function buildRoomState(slug: string): Promise<RoomState | null> {
     allDay:   r.all_day === 1,
   }));
 
-  const theme = await loadTheme(room.theme_override_id, room.theme_group_id);
+  const theme = await loadTheme(
+    room.theme_tier === 'room'  ? room.theme_override_id : null,
+    room.theme_tier === 'group' ? room.theme_group_id    : null,
+  );
 
   return {
     version:  1,
