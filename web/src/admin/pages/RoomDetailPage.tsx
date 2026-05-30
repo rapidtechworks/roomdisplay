@@ -290,18 +290,16 @@ export function RoomDetailPage() {
                 label="Room Override"
                 onClick={() => handleTierClick('room')}
               >
-                {activeTier === 'room' && (
-                  <Link
-                    to={`/admin/rooms/${roomId}/theme`}
-                    className="btn-primary text-xs shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Edit Theme →
-                  </Link>
-                )}
+                <Link
+                  to={`/admin/rooms/${roomId}/theme`}
+                  className={`btn-primary text-xs shrink-0 ${activeTier === 'room' ? '' : 'invisible pointer-events-none'}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Edit Theme →
+                </Link>
               </TierRow>
 
-              {/* Group Theme — dropdown always visible, stopPropagation so clicking it doesn't trigger the row */}
+              {/* Group Theme — dropdown anchored right, Go to Group appears to its left when active */}
               <TierRow
                 active={activeTier === 'group'}
                 busy={tierBusy}
@@ -310,6 +308,13 @@ export function RoomDetailPage() {
                 onClick={() => handleTierClick('group')}
               >
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <Link
+                    to={currentGroup ? `/admin/groups/${currentGroup.id}` : '#'}
+                    className={`btn-secondary text-xs shrink-0 ${activeTier === 'group' && currentGroup ? '' : 'invisible pointer-events-none'}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Go to Group →
+                  </Link>
                   <select
                     className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
                     value={room.themeGroupId ?? ''}
@@ -324,11 +329,6 @@ export function RoomDetailPage() {
                       <option key={g.id} value={g.id}>{g.name}</option>
                     ))}
                   </select>
-                  {currentGroup && activeTier === 'group' && (
-                    <Link to={`/admin/groups/${currentGroup.id}`} className="btn-secondary text-xs">
-                      Go to Group →
-                    </Link>
-                  )}
                 </div>
               </TierRow>
 
@@ -339,15 +339,13 @@ export function RoomDetailPage() {
                 label="Global Theme"
                 onClick={() => handleTierClick('global')}
               >
-                {activeTier === 'global' && (
-                  <Link
-                    to="/admin/theme"
-                    className="btn-secondary text-xs shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Go to Theme →
-                  </Link>
-                )}
+                <Link
+                  to="/admin/theme"
+                  className={`btn-secondary text-xs shrink-0 ${activeTier === 'global' ? '' : 'invisible pointer-events-none'}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Go to Theme →
+                </Link>
               </TierRow>
 
             </div>
