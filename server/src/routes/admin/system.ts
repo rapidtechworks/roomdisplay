@@ -150,7 +150,7 @@ export async function registerSystemRoutes(server: FastifyInstance) {
         latestCommit:  remoteCommit || null,
       };
 
-      _updateCheckCache = { result, expiresAt: Date.now() + 10 * 60_000 };
+      _updateCheckCache = { result, expiresAt: Date.now() + 2 * 60_000 };
       return reply.send(result);
 
     } catch (err) {

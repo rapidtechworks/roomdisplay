@@ -12,7 +12,7 @@ const NAV = [
   { to: '/admin/theme',    label: 'Theme',     exact: false },
 ];
 
-const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const UPDATE_CHECK_INTERVAL_MS = 90 * 1000;
 
 function useUpdateAvailable(): boolean {
   const [updateAvailable, setUpdateAvailable] = useState(false);
