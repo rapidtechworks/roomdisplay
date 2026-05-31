@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type WalkUp, type RoomEvent, type Tablet } from '../api.ts';
@@ -44,10 +44,12 @@ export function RoomDetailPage() {
 
   // ── Responsive preview — measure the right column and fit the iframe to it ──
   const previewColRef = useRef<HTMLDivElement>(null);
-  const [colWidth, setColWidth] = useState(480);
-  useEffect(() => {
+  const [colWidth, setColWidth] = useState(0);
+  useLayoutEffect(() => {
     const el = previewColRef.current;
     if (!el) return;
+    // Read actual width synchronously before first paint so the scale is correct immediately.
+    setColWidth(el.getBoundingClientRect().width);
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
       if (w !== undefined) setColWidth(w);
@@ -452,7 +454,8 @@ export function RoomDetailPage() {
         {/* ── Right column — preview + device ─────────────────────────────── */}
         <div ref={previewColRef} className="min-w-0 space-y-4">
 
-          {/* Tablet preview */}
+          {/* Tablet preview — only render once column width is measured */}
+          {colWidth > 0 && (
           <div
             className="rounded-[24px] p-[2px] shadow-2xl"
             style={{
@@ -480,6 +483,7 @@ export function RoomDetailPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Device status card */}
           <DeviceCard
