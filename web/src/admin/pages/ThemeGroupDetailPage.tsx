@@ -41,8 +41,20 @@ export function ThemeGroupDetailPage() {
   });
 
   const assignMutation = useMutation({
-    mutationFn: ({ roomId, assign }: { roomId: number; assign: boolean }) =>
-      api.updateRoom(roomId, { themeGroupId: assign ? groupId : null }),
+    mutationFn: async ({ roomId, assign }: { roomId: number; assign: boolean }) => {
+      if (assign) {
+        // If the room has a room override active, disable it first so the
+        // group tier takes effect cleanly.
+        const room = allRooms.data?.find((r) => r.id === roomId);
+        if (room?.themeOverrideId !== null && room?.themeOverrideId !== undefined) {
+          await api.disableRoomTheme(roomId);
+        }
+        await api.updateRoom(roomId, { themeGroupId: groupId, themeTier: 'group' });
+      } else {
+        // Remove from active group tier but keep groupId remembered.
+        await api.updateRoom(roomId, { themeTier: 'global' });
+      }
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['theme-group', groupId] });
       void qc.invalidateQueries({ queryKey: ['rooms'] });
@@ -59,9 +71,9 @@ export function ThemeGroupDetailPage() {
 
   const g = group.data;
 
-  // Rooms NOT in this group (available to add)
+  // Rooms not actively using this group's theme tier — available to add.
   const unassignedRooms = allRooms.data?.filter(
-    (r) => r.themeGroupId !== groupId,
+    (r) => !(r.themeGroupId === groupId && r.themeTier === 'group'),
   ) ?? [];
 
   const handleDelete = () => {
@@ -193,11 +205,17 @@ export function ThemeGroupDetailPage() {
               className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-300 focus:border-indigo-500 focus:outline-none"
             >
               <option value="" disabled>+ Add a room to this group…</option>
-              {unassignedRooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.displayName}{r.themeGroupId ? ' (in another group)' : ''}
-                </option>
-              ))}
+              {unassignedRooms.map((r) => {
+                let label = r.displayName;
+                if (r.themeTier === 'group' && r.themeGroupId !== groupId) {
+                  label += ' (in another group)';
+                } else if (r.themeTier === 'room') {
+                  label += ' (room override active)';
+                } else if (r.themeGroupId === groupId) {
+                  label += ' (remembered — not active)';
+                }
+                return <option key={r.id} value={r.id}>{label}</option>;
+              })}
             </select>
           </div>
         )}

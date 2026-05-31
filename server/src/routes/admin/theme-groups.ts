@@ -25,11 +25,12 @@ export async function registerThemeGroupsRoutes(server: FastifyInstance) {
       .orderBy('name', 'asc')
       .execute();
 
-    // Room counts per group (separate query avoids Kysely join-alias typing issues)
+    // Count only rooms actively using group theme (theme_tier = 'group')
     const counts = await db
       .selectFrom('rooms')
       .select(['theme_group_id', db.fn.count<number>('id').as('n')])
       .where('theme_group_id', 'is not', null)
+      .where('theme_tier', '=', 'group')
       .groupBy('theme_group_id')
       .execute();
 
@@ -81,10 +82,12 @@ export async function registerThemeGroupsRoutes(server: FastifyInstance) {
         return reply.code(404).send({ error: 'not_found', message: 'Theme group not found' });
       }
 
+      // Only rooms actively using this group's theme (not just remembered)
       const rooms = await db
         .selectFrom('rooms')
         .select(['id', 'slug', 'display_name'])
         .where('theme_group_id', '=', id)
+        .where('theme_tier', '=', 'group')
         .orderBy('display_name', 'asc')
         .execute();
 
