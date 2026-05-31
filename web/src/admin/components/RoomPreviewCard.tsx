@@ -93,7 +93,9 @@ export function RoomPreviewCard({ room, tablets, onClick }: Props) {
         </span>
 
         {isOnline && (
-          <span className="shrink-0 text-xs text-emerald-400">Live</span>
+          <span className="shrink-0 text-xs text-emerald-400">
+            {activeTablet?.label ? `${activeTablet.label} · Live` : 'Live'}
+          </span>
         )}
         {!isOnline && hasAnyTablet && (
           <span className="shrink-0 text-xs text-gray-500">Offline</span>
