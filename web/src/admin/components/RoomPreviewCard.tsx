@@ -20,8 +20,10 @@ export function RoomPreviewCard({ room, tablets, onClick }: Props) {
   const assignedTablet = tablets.find(
     (t) => t.assignedRoomId === room.id,
   );
-  const hasAnyTablet = !!assignedTablet;
   const isOnline     = !!activeTablet;
+  // A room "has a device" if something is actively displaying it OR if a
+  // tablet has been administratively assigned to it.
+  const hasAnyTablet = isOnline || !!assignedTablet;
 
   return (
     <button
