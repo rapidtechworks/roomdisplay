@@ -310,14 +310,14 @@ export function RoomDetailPage() {
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   <Link
                     to={currentGroup ? `/admin/groups/${currentGroup.id}` : '#'}
-                    className={`btn-secondary text-xs shrink-0 ${activeTier === 'group' && currentGroup ? '' : 'invisible pointer-events-none'}`}
+                    className={`btn-secondary text-sm shrink-0 h-9 inline-flex items-center ${activeTier === 'group' && currentGroup ? '' : 'invisible pointer-events-none'}`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     Go to Group →
                   </Link>
                   <div className="relative">
                     <select
-                      className="appearance-none rounded-lg border border-gray-700 bg-transparent pl-3 pr-8 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-gray-600 hover:text-white focus:outline-none disabled:opacity-50 cursor-pointer"
+                      className="appearance-none h-9 rounded-lg border border-gray-700 bg-transparent pl-3 pr-8 text-sm font-medium text-gray-300 transition-colors hover:border-gray-600 hover:text-white focus:outline-none disabled:opacity-50 cursor-pointer"
                       value={room.themeGroupId ?? ''}
                       disabled={tierBusy || !groups?.length}
                       onChange={(e) => {
