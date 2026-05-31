@@ -194,7 +194,7 @@ export function ThemeGroupDetailPage() {
 
         {/* Add room */}
         {unassignedRooms.length > 0 && (
-          <div className="mt-3">
+          <div className="mt-2 rounded-lg border border-dashed border-gray-700 px-4 py-3">
             <select
               defaultValue=""
               onChange={(e) => {
