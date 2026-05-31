@@ -202,7 +202,7 @@ export function ThemeGroupDetailPage() {
                 assignMutation.mutate({ roomId: Number(e.target.value), assign: true });
                 e.target.value = '';
               }}
-              className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-300 focus:border-indigo-500 focus:outline-none"
+              className="input"
             >
               <option value="" disabled>+ Add a room to this group…</option>
               {unassignedRooms.map((r) => {
