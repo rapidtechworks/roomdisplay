@@ -120,10 +120,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 try {
-  // In dev, bind to localhost only. In production, bind to all interfaces
-  // (the systemd service runs on port 80, protected by the LAN firewall).
-  const host = config.isDev ? '127.0.0.1' : '0.0.0.0';
-  await server.listen({ port: config.PORT, host });
+  await server.listen({ port: config.PORT, host: '0.0.0.0' });
   server.log.info(`Room Display server running on port ${config.PORT}`);
   startScheduler(server.log);
 
