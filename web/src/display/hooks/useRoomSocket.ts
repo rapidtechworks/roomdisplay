@@ -13,13 +13,31 @@ function generateUuid(): string {
   });
 }
 
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]!) : null;
+}
+
+function setCookie(name: string, value: string, days: number) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
 function getOrCreateTabletUuid(): string {
-  const KEY = 'roomdisplay_tablet_uuid';
-  let uuid = localStorage.getItem(KEY);
+  const LS_KEY = 'roomdisplay_tablet_uuid';
+  const CK_KEY = 'rd_tablet_uuid';
+
+  // Prefer localStorage; fall back to cookie if storage was cleared.
+  let uuid = localStorage.getItem(LS_KEY) ?? getCookie(CK_KEY);
+
   if (!uuid) {
     uuid = generateUuid();
-    localStorage.setItem(KEY, uuid);
   }
+
+  // Keep both stores in sync so either survives a clear.
+  localStorage.setItem(LS_KEY, uuid);
+  setCookie(CK_KEY, uuid, 365);
+
   return uuid;
 }
 

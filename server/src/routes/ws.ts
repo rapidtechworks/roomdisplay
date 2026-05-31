@@ -76,29 +76,68 @@ export async function registerWsRoute(server: FastifyInstance) {
             'Tablet subscribed to room',
           );
 
-          // Upsert tablet record (best-effort — don't block the subscribe)
+          // Register/update tablet record (best-effort — don't block the subscribe)
           const now = new Date().toISOString();
-          db.insertInto('tablets')
-            .values({
-              tablet_uuid:      tabletUuid,
-              last_seen_at:     now,
-              last_ip:          request.ip,
-              user_agent:       request.headers['user-agent'] ?? null,
-              assigned_room_id: null,
-              label:            null,
-              created_at:       now,
-            })
-            .onConflict((oc) =>
-              oc.column('tablet_uuid').doUpdateSet({
-                last_seen_at: now,
-                last_ip:      request.ip,
-                user_agent:   request.headers['user-agent'] ?? null,
-              }),
-            )
-            .execute()
-            .catch((err: unknown) => {
-              server.log.warn({ err }, 'Failed to upsert tablet record');
-            });
+          const ip  = request.ip;
+          const ua  = request.headers['user-agent'] ?? null;
+
+          (async () => {
+            // 1. Known UUID → just refresh heartbeat fields.
+            const existing = await db
+              .selectFrom('tablets')
+              .select('tablet_uuid')
+              .where('tablet_uuid', '=', tabletUuid)
+              .executeTakeFirst();
+
+            if (existing) {
+              await db.updateTable('tablets')
+                .set({ last_seen_at: now, last_ip: ip, user_agent: ua })
+                .where('tablet_uuid', '=', tabletUuid)
+                .execute();
+              return;
+            }
+
+            // 2. Unknown UUID — look for a fingerprint match (same IP + UA).
+            // If exactly one device matches, this is almost certainly the same
+            // physical tablet whose localStorage was cleared; rename that record
+            // so the admin's label and room assignment survive.
+            if (ua !== null) {
+              const candidates = await db
+                .selectFrom('tablets')
+                .select('tablet_uuid')
+                .where('last_ip', '=', ip)
+                .where('user_agent', '=', ua)
+                .execute();
+
+              const candidate = candidates.length === 1 ? candidates[0] : undefined;
+              if (candidate) {
+                server.log.info(
+                  { oldUuid: candidate.tablet_uuid, newUuid: tabletUuid, ip },
+                  'Tablet UUID changed — merged with existing record',
+                );
+                await db.updateTable('tablets')
+                  .set({ tablet_uuid: tabletUuid, last_seen_at: now, last_ip: ip, user_agent: ua })
+                  .where('tablet_uuid', '=', candidate.tablet_uuid)
+                  .execute();
+                return;
+              }
+            }
+
+            // 3. Genuinely new device.
+            await db.insertInto('tablets')
+              .values({
+                tablet_uuid:      tabletUuid,
+                last_seen_at:     now,
+                last_ip:          ip,
+                user_agent:       ua,
+                assigned_room_id: null,
+                label:            null,
+                created_at:       now,
+              })
+              .execute();
+          })().catch((err: unknown) => {
+            server.log.warn({ err }, 'Failed to register tablet record');
+          });
 
           // Push current state immediately to this tablet
           sendStateTo(roomSlug, socket).catch((err: unknown) => {
