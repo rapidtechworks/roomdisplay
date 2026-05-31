@@ -316,7 +316,7 @@ export function RoomDetailPage() {
                     Go to Group →
                   </Link>
                   <select
-                    className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:opacity-50"
                     value={room.themeGroupId ?? ''}
                     disabled={tierBusy || !groups?.length}
                     onChange={(e) => {
