@@ -1,45 +1,5 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { RoomState, WsClientMessage, WsServerMessage } from '@roomdisplay/shared';
-
-function generateUuid(): string {
-  // crypto.randomUUID() requires a secure context (HTTPS/localhost).
-  // Fall back to a manual implementation for plain-HTTP LAN access.
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-  });
-}
-
-function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
-  return match ? decodeURIComponent(match[1]!) : null;
-}
-
-function setCookie(name: string, value: string, days: number) {
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
-}
-
-function getOrCreateTabletUuid(): string {
-  const LS_KEY = 'roomdisplay_tablet_uuid';
-  const CK_KEY = 'rd_tablet_uuid';
-
-  // Prefer localStorage; fall back to cookie if storage was cleared.
-  let uuid = localStorage.getItem(LS_KEY) ?? getCookie(CK_KEY);
-
-  if (!uuid) {
-    uuid = generateUuid();
-  }
-
-  // Keep both stores in sync so either survives a clear.
-  localStorage.setItem(LS_KEY, uuid);
-  setCookie(CK_KEY, uuid, 365);
-
-  return uuid;
-}
 
 export function useRoomSocket(slug: string, options?: { previewMode?: boolean }) {
   const previewMode = options?.previewMode ?? false;
@@ -52,8 +12,6 @@ export function useRoomSocket(slug: string, options?: { previewMode?: boolean })
   const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryDelay  = useRef(3_000);
   const alive       = useRef(true);
-
-  const tabletUuid = useMemo(() => getOrCreateTabletUuid(), []);
 
   const fetchState = useCallback(async () => {
     try {
@@ -84,7 +42,9 @@ export function useRoomSocket(slug: string, options?: { previewMode?: boolean })
     ws.onopen = () => {
       if (!alive.current) { ws.close(); return; }
       retryDelay.current = 3_000;
-      const msg: WsClientMessage = { type: 'subscribe', roomSlug: slug, tabletUuid };
+      // Device identity is carried by the rd_device_id cookie set by the server.
+      // The subscribe message only tells the server which room this tablet displays.
+      const msg: WsClientMessage = { type: 'subscribe', roomSlug: slug };
       ws.send(JSON.stringify(msg));
     };
 
@@ -116,14 +76,13 @@ export function useRoomSocket(slug: string, options?: { previewMode?: boolean })
     };
 
     ws.onerror = () => { ws.close(); };
-  }, [slug, tabletUuid, startPoll, stopPoll]);
+  }, [slug, startPoll, stopPoll]);
 
   useEffect(() => {
     alive.current = true;
 
     if (previewMode) {
       // Preview: REST polling only — no WebSocket, no tablet registration.
-      // 3s interval keeps the preview feeling live without hammering the server.
       void fetchState();
       pollRef.current = setInterval(() => void fetchState(), 3_000);
       return () => {
@@ -132,8 +91,10 @@ export function useRoomSocket(slug: string, options?: { previewMode?: boolean })
       };
     }
 
-    void fetchState(); // Load state immediately via REST so display shows before WS connects
-    connect();
+    // Fetch state first so the rd_device_id cookie is set before the WebSocket
+    // upgrade request goes out. The server reads that cookie for device identity.
+    fetchState().finally(() => { if (alive.current) connect(); });
+
     return () => {
       alive.current = false;
       wsRef.current?.close();

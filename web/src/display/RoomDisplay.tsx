@@ -73,11 +73,11 @@ export function RoomDisplay({ slug }: Props) {
   const derivedRef    = useRef<DerivedState | null>(null);
   const themeRef      = useRef<Theme | null>(null);
 
-  // Read the tablet's UUID from localStorage and show the first 8 chars in the
-  // corner so admins can identify which tablet is which without relying on IP.
+  // Read the server-assigned device ID from the cookie (set by the server on
+  // first HTTP response) and show the first 8 chars for admin identification.
   useEffect(() => {
-    const uuid = localStorage.getItem('roomdisplay_tablet_uuid');
-    if (uuid) setShortId(uuid.slice(0, 8));
+    const match = document.cookie.match(/(?:^|; )rd_device_id=([^;]*)/);
+    if (match?.[1]) setShortId(decodeURIComponent(match[1]).slice(0, 8));
   }, []);
 
   const derived = useMemo(

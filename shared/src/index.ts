@@ -184,7 +184,7 @@ export const DEFAULT_THEME: Theme = {
 
 // Client → Server
 export type WsClientMessage =
-  | { type: 'subscribe'; roomSlug: string; tabletUuid: string }
+  | { type: 'subscribe'; roomSlug: string }
   | { type: 'pong' };
 
 // Server → Client

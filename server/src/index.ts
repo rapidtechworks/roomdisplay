@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { mkdirSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
 import websocketPlugin from '@fastify/websocket';
 import fastifyMultipart from '@fastify/multipart';
@@ -47,6 +48,20 @@ await registerSessionPlugin(server);
 
 // 2. CSRF protection (requires cookie plugin)
 await registerCsrfPlugin(server);
+
+// Assign a persistent device ID to every browser that hasn't been seen before.
+// The server is the sole source of identity — no client-side UUID generation.
+// Cookie is readable by JS (not HttpOnly) so the display can show a short ID
+// for admin identification, but is set exclusively by the server.
+server.addHook('onSend', async (request, reply) => {
+  if (!request.cookies?.['rd_device_id']) {
+    void reply.setCookie('rd_device_id', randomUUID(), {
+      sameSite: 'lax',
+      path: '/',
+      expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    });
+  }
+});
 
 // 3. Multipart (file uploads — must be registered before upload routes)
 await server.register(fastifyMultipart, {

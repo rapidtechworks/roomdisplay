@@ -1,11 +1,14 @@
 /**
  * WebSocket endpoint — /ws
  *
- * Tablets connect here, send a `subscribe` message with their roomSlug and
- * tabletUuid, and receive `state` pushes whenever the room changes.
+ * Tablets connect here, send a `subscribe` message with their roomSlug,
+ * and receive `state` pushes whenever the room changes.
+ *
+ * Device identity comes from the `rd_device_id` cookie set by the server
+ * on the first HTTP response — no client-side UUID generation.
  *
  * Protocol (application-level):
- *   Client → Server:  { type: 'subscribe', roomSlug, tabletUuid }
+ *   Client → Server:  { type: 'subscribe', roomSlug }
  *                     { type: 'pong' }
  *   Server → Client:  { type: 'state',    payload: RoomState }
  *                     { type: 'ping' }
@@ -14,6 +17,7 @@
  * Keepalive: server sends `ping` every 30 s; closes the connection if no
  * `pong` is received within 10 s.
  */
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { SocketStream } from '@fastify/websocket';
 import { db } from '../db/index.js';
@@ -29,8 +33,12 @@ export async function registerWsRoute(server: FastifyInstance) {
     { websocket: true },
     (connection: SocketStream, request: FastifyRequest) => {
       const socket = connection.socket;
+
+      // Device identity from the server-set cookie. If somehow absent (direct
+      // WS connection before any HTTP response), generate a transient ID.
+      const deviceId: string = request.cookies['rd_device_id'] ?? randomUUID();
+
       let subscribedSlug: string | null = null;
-      let subscribedTabletUuid: string | null = null;
 
       // ── Keepalive ──────────────────────────────────────────────────────────
       let pongTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -59,7 +67,7 @@ export async function registerWsRoute(server: FastifyInstance) {
         }
 
         if (msg.type === 'subscribe') {
-          const { roomSlug, tabletUuid } = msg;
+          const { roomSlug } = msg;
 
           // Swap subscription if the tablet changes rooms
           if (subscribedSlug && subscribedSlug !== roomSlug) {
@@ -67,77 +75,37 @@ export async function registerWsRoute(server: FastifyInstance) {
           }
 
           subscribedSlug = roomSlug;
-          subscribedTabletUuid = tabletUuid;
           subscribe(roomSlug, socket);
-          trackTablet(tabletUuid, roomSlug, request.ip);
+          trackTablet(deviceId, roomSlug, request.ip);
 
           server.log.info(
-            { roomSlug, tabletUuid, ip: request.ip },
+            { roomSlug, deviceId, ip: request.ip },
             'Tablet subscribed to room',
           );
 
-          // Register/update tablet record (best-effort — don't block the subscribe)
+          // Upsert tablet record (best-effort — don't block the subscribe)
           const now = new Date().toISOString();
-          const ip  = request.ip;
-          const ua  = request.headers['user-agent'] ?? null;
-
-          (async () => {
-            // 1. Known UUID → just refresh heartbeat fields.
-            const existing = await db
-              .selectFrom('tablets')
-              .select('tablet_uuid')
-              .where('tablet_uuid', '=', tabletUuid)
-              .executeTakeFirst();
-
-            if (existing) {
-              await db.updateTable('tablets')
-                .set({ last_seen_at: now, last_ip: ip, user_agent: ua })
-                .where('tablet_uuid', '=', tabletUuid)
-                .execute();
-              return;
-            }
-
-            // 2. Unknown UUID — look for a fingerprint match (same IP + UA).
-            // If exactly one device matches, this is almost certainly the same
-            // physical tablet whose localStorage was cleared; rename that record
-            // so the admin's label and room assignment survive.
-            if (ua !== null) {
-              const candidates = await db
-                .selectFrom('tablets')
-                .select('tablet_uuid')
-                .where('last_ip', '=', ip)
-                .where('user_agent', '=', ua)
-                .execute();
-
-              const candidate = candidates.length === 1 ? candidates[0] : undefined;
-              if (candidate) {
-                server.log.info(
-                  { oldUuid: candidate.tablet_uuid, newUuid: tabletUuid, ip },
-                  'Tablet UUID changed — merged with existing record',
-                );
-                await db.updateTable('tablets')
-                  .set({ tablet_uuid: tabletUuid, last_seen_at: now, last_ip: ip, user_agent: ua })
-                  .where('tablet_uuid', '=', candidate.tablet_uuid)
-                  .execute();
-                return;
-              }
-            }
-
-            // 3. Genuinely new device.
-            await db.insertInto('tablets')
-              .values({
-                tablet_uuid:      tabletUuid,
-                last_seen_at:     now,
-                last_ip:          ip,
-                user_agent:       ua,
-                assigned_room_id: null,
-                label:            null,
-                created_at:       now,
-              })
-              .execute();
-          })().catch((err: unknown) => {
-            server.log.warn({ err }, 'Failed to register tablet record');
-          });
+          db.insertInto('tablets')
+            .values({
+              tablet_uuid:      deviceId,
+              last_seen_at:     now,
+              last_ip:          request.ip,
+              user_agent:       request.headers['user-agent'] ?? null,
+              assigned_room_id: null,
+              label:            null,
+              created_at:       now,
+            })
+            .onConflict((oc) =>
+              oc.column('tablet_uuid').doUpdateSet({
+                last_seen_at: now,
+                last_ip:      request.ip,
+                user_agent:   request.headers['user-agent'] ?? null,
+              }),
+            )
+            .execute()
+            .catch((err: unknown) => {
+              server.log.warn({ err }, 'Failed to upsert tablet record');
+            });
 
           // Push current state immediately to this tablet
           sendStateTo(roomSlug, socket).catch((err: unknown) => {
@@ -161,9 +129,7 @@ export async function registerWsRoute(server: FastifyInstance) {
           unsubscribe(subscribedSlug, socket);
           server.log.debug({ slug: subscribedSlug }, 'Tablet disconnected');
         }
-        if (subscribedTabletUuid) {
-          untrackTablet(subscribedTabletUuid);
-        }
+        untrackTablet(deviceId);
       });
 
       socket.on('error', (err: Error) => {
