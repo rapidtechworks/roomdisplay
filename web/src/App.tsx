@@ -10,7 +10,7 @@ export default function App() {
       <Route path="/"              element={<RoomPickerPage />} />
       <Route path="/admin/*"       element={<ErrorBoundary context="admin"><AdminApp /></ErrorBoundary>} />
       <Route path="/display/:slug" element={<ErrorBoundary context="display"><DisplayApp /></ErrorBoundary>} />
-      <Route path="/display"       element={<ErrorBoundary context="display"><DisplayApp /></ErrorBoundary>} />
+      <Route path="/display"       element={<Navigate to="/" replace />} />
       <Route path="*"              element={<Navigate to="/" replace />} />
     </Routes>
   );
