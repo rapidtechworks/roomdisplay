@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type WalkUp, type RoomEvent, type Tablet } from '../api.ts';
@@ -43,19 +43,21 @@ export function RoomDetailPage() {
   });
 
   // ── Responsive preview — measure the right column and fit the iframe to it ──
-  const previewColRef = useRef<HTMLDivElement>(null);
+  // Callback ref fires when the element is attached/detached regardless of
+  // navigation type. ResizeObserver fires asynchronously after browser layout
+  // so it always reports the real post-layout width, even on back navigation.
   const [colWidth, setColWidth] = useState(0);
-  useLayoutEffect(() => {
-    const el = previewColRef.current;
+  const roRef = useRef<ResizeObserver | null>(null);
+  const previewColRef = useCallback((el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    roRef.current = null;
     if (!el) return;
-    // Read actual width synchronously before first paint so the scale is correct immediately.
-    setColWidth(el.getBoundingClientRect().width);
     const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w !== undefined) setColWidth(w);
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setColWidth(w);
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    roRef.current = ro;
   }, []);
   const previewScale  = (colWidth - FRAME_OVERHEAD) / IFRAME_W;
   const screenW       = Math.round(IFRAME_W * previewScale);
