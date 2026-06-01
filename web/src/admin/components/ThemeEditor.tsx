@@ -286,7 +286,8 @@ export function ThemeEditor({
 }: ThemeEditorProps) {
   const fileRef     = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedOpen,    setAdvancedOpen]    = useState(false);
+  const [screensaverMode, setScreensaverMode] = useState(false);
 
   // ResizeObserver for iframe scaling (three-panel only)
   const [iframeColW, setIframeColW] = useState(0);
@@ -618,9 +619,22 @@ export function ThemeEditor({
                   transformOrigin: 'top left',
                 }}
               >
-                <ThemePreview theme={value} />
+                <ThemePreview theme={value} screensaver={screensaverMode} />
               </div>
             )}
+
+            {/* Screensaver toggle — overlaid top-right of preview */}
+            <button
+              type="button"
+              onClick={() => setScreensaverMode((m) => !m)}
+              className={`absolute top-2 right-2 z-10 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                screensaverMode
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-800/80 text-gray-400 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              {screensaverMode ? 'Screensaver' : 'Screensaver'}
+            </button>
           </div>
 
           {/* Advanced settings — takes remaining height, scrollable */}

@@ -35,7 +35,7 @@ function hexToRgb(hex: string): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ThemePreview({ theme }: { theme: Theme }) {
+export function ThemePreview({ theme, screensaver = false }: { theme: Theme; screensaver?: boolean }) {
   const bgImage  = theme.backgroundImageUrl || theme.defaultBackgroundImagePath || null;
   const scrimCss = `rgba(${hexToRgb(theme.scrimColor)},${theme.scrimOpacity})`;
   const logoSrc  = theme.logoImageUrl ?? theme.logoImagePath ?? null;
@@ -194,6 +194,74 @@ export function ThemePreview({ theme }: { theme: Theme }) {
         </div>
 
       </div>
-    </div>
+
+      {/* Screensaver overlay — static centered version of the Lissajous drifter */}
+      {screensaver && (
+        <div style={{
+          position:   'absolute',
+          inset:      0,
+          zIndex:     60,
+          background: 'rgba(0, 0, 0, 0.93)',
+          display:    'flex',
+          flexDirection: 'column',
+          alignItems:    'center',
+          justifyContent:'center',
+        }}>
+          {/* Drifting content block — static center for preview */}
+          <div style={{ textAlign: 'center', userSelect: 'none' }}>
+            <p style={{
+              fontFamily: theme.roomNameFontFamily,
+              fontSize:   '64px',
+              fontWeight: theme.roomNameFontWeight,
+              color:      theme.screensaverTextColor,
+              lineHeight: 1.1,
+              whiteSpace: 'nowrap',
+            }}>
+              Chapel A
+            </p>
+            <p style={{
+              fontFamily: theme.roomNameFontFamily,
+              fontSize:   '46px',
+              fontWeight: theme.statusFontWeight,
+              color:      theme.accentColorAvailable,
+              opacity:    0.55,
+              lineHeight: 1.1,
+              marginTop:  '0.25em',
+              whiteSpace: 'nowrap',
+            }}>
+              Available
+            </p>
+            <p style={{
+              fontFamily: theme.clockFontFamily,
+              fontSize:   '26px',
+              fontWeight: 300,
+              color:      theme.screensaverTextColor,
+              opacity:    0.5,
+              marginTop:  '0.5em',
+            }}>
+              {CLOCK}
+            </p>
+          </div>
+
+          {/* Touch to wake hint */}
+          <p style={{
+            position:      'absolute',
+            bottom:        32,
+            left:          0,
+            right:         0,
+            textAlign:     'center',
+            fontSize:      14,
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            color:         theme.screensaverTextColor,
+            opacity:       0.2,
+            userSelect:    'none',
+          }}>
+            Touch to wake
+          </p>
+        </div>
+      )}
+
+    </div> // root 1280×720
   );
 }
