@@ -20,23 +20,36 @@
 	local_certs
 }
 
-https://{$RD_HOSTNAME} {
-	encode zstd gzip
-
-	# WebSocket (/ws) and HTTP requests both proxy transparently.
-	reverse_proxy 127.0.0.1:{$RD_BACKEND_PORT:3000}
-}
-
-# Plain-HTTP listener: serves the root CA for bootstrapping, redirects all else.
-# A tablet that hasn't trusted the CA yet can't load HTTPS, so it downloads the
-# cert here first at  http://<host>/rootca.crt , installs it, then HTTPS works.
-http://{$RD_HOSTNAME} {
+# Reusable snippet: serve the internal CA root cert at /rootca.crt.
+# Defined once, used on BOTH listeners so a browser that auto-upgrades
+# http->https (most do now) can still download the cert before it's trusted.
+(rootca) {
 	@rootca path /rootca.crt
 	handle @rootca {
 		root * /var/lib/caddy/data/caddy/pki/authorities/local
 		rewrite * /root.crt
+		# Force the cert MIME type so iOS/Android recognise it as installable.
+		header Content-Type application/x-x509-ca-cert
+		header Content-Disposition "attachment; filename=\"RoomDisplay-CA.crt\""
 		file_server
 	}
+}
+
+https://{$RD_HOSTNAME} {
+	encode zstd gzip
+
+	import rootca
+
+	# Everything else: proxy to the Node app (WebSocket /ws included).
+	handle {
+		reverse_proxy 127.0.0.1:{$RD_BACKEND_PORT:3000}
+	}
+}
+
+# Plain-HTTP listener: serve the root CA for bootstrapping, redirect all else.
+http://{$RD_HOSTNAME} {
+	import rootca
+
 	handle {
 		redir https://{$RD_HOSTNAME}{uri} permanent
 	}
