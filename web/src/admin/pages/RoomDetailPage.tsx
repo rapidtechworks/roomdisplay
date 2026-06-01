@@ -283,10 +283,13 @@ export function RoomDetailPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { setEditSlug(room.slug); setSlugError(null); setEditingSlug(true); }}
-                  className="font-mono text-xs text-white hover:text-indigo-300 transition-colors"
+                  className="group flex items-center gap-1 font-mono text-xs text-indigo-400 underline decoration-dashed underline-offset-2 hover:text-indigo-300 transition-colors"
                   title="Click to edit slug"
                 >
                   /display/{room.slug}
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" fill="currentColor" className="h-2.5 w-2.5 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <path d="M7.95 1.5a1.5 1.5 0 0 1 2.12 2.12L9.06 4.63 7.44 3l1.01-1.5H7.95zM6.38 4.06 2 8.44V10h1.56l4.38-4.38-1.56-1.56z"/>
+                  </svg>
                 </button>
                 <a
                   href={`/display/${room.slug}`}
