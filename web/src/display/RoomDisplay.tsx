@@ -148,9 +148,15 @@ export function RoomDisplay({ slug }: Props) {
     }
   }, [showScreensaver, derived?.nextEvent, now, state?.theme.screensaverPreEventMinutes, wakeUp]);
 
-  // Camera motion detection — only active while screensaver is visible
+  // Camera motion detection — runs continuously while the feature is enabled so
+  // presence is detected BEFORE the screensaver fires. Any motion calls wakeUp,
+  // which resets the idle timer (preventing the screensaver while someone is in
+  // front of the tablet) and also dismisses it if it's already showing.
+  // Gated off in preview mode so the admin's display iframe never opens the camera.
   useCameraMotion({
-    enabled: (state?.theme.screensaverUseCameraMotion ?? false) && showScreensaver,
+    enabled: (state?.theme.screensaverUseCameraMotion ?? false)
+      && (state?.theme.screensaverEnabled ?? false)
+      && !previewMode,
     onMotion: wakeUp,
   });
 
