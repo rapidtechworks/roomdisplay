@@ -31,7 +31,8 @@ export function ThemePage() {
 
   useEffect(() => {
     if (rooms && rooms.length > 0 && !previewSlug) {
-      setPreviewSlug(rooms[0]!.slug);
+      const globalRoom = rooms.find((r) => r.themeTier === 'global') ?? rooms[0]!;
+      setPreviewSlug(globalRoom.slug);
     }
   }, [rooms, previewSlug]);
 
