@@ -5,6 +5,7 @@
 import { useState, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { Theme } from '@roomdisplay/shared';
+import { ThemePreview } from './ThemePreview.tsx';
 
 const IFRAME_W = 1280;
 const IFRAME_H = 720;
@@ -275,14 +276,13 @@ export interface ThemeEditorProps {
   uploadingLogo:    boolean;
   saving:           boolean;
   onSave:           () => void;
-  /** When set, renders a two-column layout with an iframe preview on the right. */
-  layout?:                'single' | 'three-panel';
-  previewSlug?:           string;
+  /** When set, renders a two-column layout with a live theme preview on the right. */
+  layout?: 'single' | 'three-panel';
 }
 
 export function ThemeEditor({
   value, onChange, onUploadImage, uploadingImage, uploadingLogo, saving, onSave,
-  layout = 'single', previewSlug,
+  layout = 'single',
 }: ThemeEditorProps) {
   const fileRef     = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
@@ -602,28 +602,23 @@ export function ThemeEditor({
         {/* Right column — preview (top) + advanced settings (bottom) */}
         <div className="flex flex-col h-full overflow-hidden">
 
-          {/* Iframe — 16:9 aspect ratio, scales to column width */}
+          {/* Live theme preview — scales to fit column width */}
           <div
             ref={iframeContainerRef}
-            className="relative shrink-0 w-full bg-gray-950 overflow-hidden"
+            className="relative shrink-0 w-full overflow-hidden"
             style={{ aspectRatio: `${IFRAME_W}/${IFRAME_H}` }}
           >
-            {previewSlug && previewScale > 0 ? (
-              <iframe
-                src={`/display/${previewSlug}?preview=1`}
-                title="Theme preview"
-                tabIndex={-1}
-                className="absolute top-0 left-0 border-none pointer-events-none select-none"
+            {previewScale > 0 && (
+              <div
+                className="absolute top-0 left-0 pointer-events-none select-none"
                 style={{
                   width:           IFRAME_W,
                   height:          IFRAME_H,
                   transform:       `scale(${previewScale})`,
                   transformOrigin: 'top left',
                 }}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-gray-600">
-                No rooms yet — add a room to preview the theme.
+              >
+                <ThemePreview theme={value} />
               </div>
             )}
           </div>

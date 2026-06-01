@@ -12,29 +12,16 @@ export function ThemePage() {
     queryFn:  () => api.getGlobalTheme(),
   });
 
-  const { data: rooms } = useQuery({
-    queryKey: ['rooms'],
-    queryFn:  () => api.getRooms(),
-  });
-
   const [draft,          setDraft]          = useState<Theme | null>(null);
   const [saving,         setSaving]         = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingLogo,  setUploadingLogo]  = useState(false);
   const [savedMsg,       setSavedMsg]       = useState(false);
   const [error,          setError]          = useState<string | null>(null);
-  const [previewSlug,    setPreviewSlug]    = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (data && !draft) setDraft(data.settings);
   }, [data, draft]);
-
-  useEffect(() => {
-    if (rooms && rooms.length > 0 && !previewSlug) {
-      const globalRoom = rooms.find((r) => r.themeTier === 'global') ?? rooms[0]!;
-      setPreviewSlug(globalRoom.slug);
-    }
-  }, [rooms, previewSlug]);
 
   const handleChange = (updates: Partial<Theme>) => {
     setDraft((d) => d ? { ...d, ...updates } : null);
@@ -90,7 +77,6 @@ export function ThemePage() {
     );
   }
 
-
   return (
     <div className="flex h-full flex-col overflow-hidden">
 
@@ -137,7 +123,6 @@ export function ThemePage() {
             saving={saving}
             onSave={handleSave}
             layout="three-panel"
-            previewSlug={previewSlug}
           />
         </div>
       )}
