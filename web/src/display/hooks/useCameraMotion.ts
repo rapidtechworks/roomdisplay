@@ -14,12 +14,24 @@
  *   - no camera is present
  */
 import { useEffect, useRef } from 'react';
+import { inspectCameraSupport } from '../lib/cameraCapabilities.ts';
+
+/** Why the camera stream isn't running, for diagnostics/logging. */
+export type CameraMotionStatus =
+  | 'active'            // stream running, diffing frames
+  | 'insecure-context' // not HTTPS — getUserMedia unavailable
+  | 'no-api'           // browser exposes no getUserMedia
+  | 'denied'           // permission denied by user/MDM
+  | 'no-camera'        // no camera device present
+  | 'error';           // anything else
 
 interface Options {
   /** Master switch — start/stop the camera stream. */
   enabled: boolean;
   /** Called when motion is detected. Debounced to at most once per 2 s. */
   onMotion: () => void;
+  /** Optional — reports why the camera did/didn't start. */
+  onStatus?: (status: CameraMotionStatus) => void;
   /** How often to sample a frame (ms). Default 500. */
   intervalMs?: number;
   /** Per-pixel luma difference required to count as "changed" (0-255). Default 20. */
@@ -35,20 +47,27 @@ const H = 120;
 export function useCameraMotion({
   enabled,
   onMotion,
+  onStatus,
   intervalMs   = 500,
   threshold    = 20,
   diffFraction = 0.015,
 }: Options): void {
-  // Stable ref so interval callback always has the latest onMotion without
+  // Stable refs so interval callbacks always have the latest callbacks without
   // restarting the camera when the parent re-renders.
   const onMotionRef  = useRef(onMotion);
   onMotionRef.current = onMotion;
+  const onStatusRef  = useRef(onStatus);
+  onStatusRef.current = onStatus;
 
   const cooldownRef = useRef(false);
 
   useEffect(() => {
     if (!enabled) return;
-    if (!navigator.mediaDevices?.getUserMedia) return;
+
+    // Surface the common hard blockers explicitly instead of bailing silently.
+    const { secureContext, hasGetUserMedia } = inspectCameraSupport();
+    if (!secureContext)   { onStatusRef.current?.('insecure-context'); return; }
+    if (!hasGetUserMedia) { onStatusRef.current?.('no-api'); return; }
 
     let stopped = false;
     let stream: MediaStream | null = null;
@@ -79,7 +98,9 @@ export function useCameraMotion({
         await video.play();
 
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) return;
+        if (!ctx) { onStatusRef.current?.('error'); return; }
+
+        onStatusRef.current?.('active');
 
         timer = setInterval(() => {
           // Video might not have a frame yet immediately after play()
@@ -111,8 +132,13 @@ export function useCameraMotion({
           prevData = new Uint8ClampedArray(curr);
         }, intervalMs);
 
-      } catch {
-        // Permission denied / no camera — silently fall back to touch-only wake
+      } catch (err) {
+        // Classify the failure so diagnostics can tell denied from missing.
+        // Falls back to touch-only wake regardless.
+        const name = err instanceof DOMException ? err.name : '';
+        if      (name === 'NotAllowedError' || name === 'SecurityError') onStatusRef.current?.('denied');
+        else if (name === 'NotFoundError'   || name === 'OverconstrainedError') onStatusRef.current?.('no-camera');
+        else                                                             onStatusRef.current?.('error');
       }
     }
 

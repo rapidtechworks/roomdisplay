@@ -19,7 +19,7 @@ export async function registerSessionPlugin(server: FastifyInstance) {
     cookieName: 'roomdisplay_session',
     cookie: {
       httpOnly: true,
-      secure: false,   // LAN deployment uses plain HTTP; no HTTPS required
+      secure: config.COOKIE_SECURE, // true when served over HTTPS (behind Caddy TLS proxy)
       sameSite: 'lax',
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days in ms
       path: '/',

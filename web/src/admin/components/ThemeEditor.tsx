@@ -570,7 +570,14 @@ export function ThemeEditor({
             <ToggleField label="Enable screensaver" value={value.screensaverEnabled} onChange={(v) => set('screensaverEnabled', v)} note="Activates after idle period when room is available. Never shows during a live meeting." wide />
             <RangeField label="Idle time before activation (minutes)" value={value.screensaverIdleMinutes} onChange={(v) => set('screensaverIdleMinutes', v)} min={1} max={30} step={1} wide />
             <RangeField label="Wake display before next event (minutes)" value={value.screensaverPreEventMinutes} onChange={(v) => set('screensaverPreEventMinutes', v)} min={5} max={60} step={5} wide />
-            <ToggleField label="Wake on camera motion" value={value.screensaverUseCameraMotion} onChange={(v) => set('screensaverUseCameraMotion', v)} note="Uses the tablet's front camera to detect movement and wake the screen. Camera permission required — grant once in the browser. Falls back to touch-only if unavailable." wide />
+            <ToggleField label="Wake on camera motion" value={value.screensaverUseCameraMotion} onChange={(v) => set('screensaverUseCameraMotion', v)} note="Uses the tablet's front camera to detect movement and wake the screen. Requires the display to be served over HTTPS and camera permission granted on each tablet. Falls back to touch-only if unavailable." wide />
+            <Field label="Verify on each tablet" wide>
+              <p className="text-xs text-gray-500">
+                Camera support depends on the device. On each tablet, open{' '}
+                <code className="rounded bg-gray-900 px-1 py-0.5 text-gray-300">/diagnostics</code>{' '}
+                to confirm secure context, permission, and run a live motion test.
+              </p>
+            </Field>
             <ColorField label="Drifting text colour" value={value.screensaverTextColor} onChange={(v) => set('screensaverTextColor', v)} wide />
           </CollapseSection>
 

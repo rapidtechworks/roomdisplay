@@ -10,6 +10,15 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().min(16),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
   DEFAULT_TIMEZONE: z.string().default('America/Chicago'),
+  // Set true when the app is served over HTTPS (e.g. behind the Caddy TLS proxy)
+  // so session cookies are flagged Secure. Requires trustProxy (already on) so
+  // the X-Forwarded-Proto header from the proxy is honoured. Leave false for
+  // plain-HTTP LAN access. Camera wake needs HTTPS regardless of this flag —
+  // this only hardens the cookie.
+  COOKIE_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   // Optional public URL returning { version, commit } JSON — used to detect available updates.
   // Host a public GitHub Gist or similar; no credentials required.
   VERSION_CHECK_URL: z.string().url().optional(),

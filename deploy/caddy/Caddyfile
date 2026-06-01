@@ -1,0 +1,43 @@
+# Room Display — Caddy reverse proxy with LAN HTTPS via Caddy's internal CA.
+#
+# Why this exists: the "wake on camera motion" screensaver feature relies on the
+# browser's getUserMedia API, which only works in a SECURE CONTEXT (HTTPS or
+# localhost). Serving the display over plain HTTP on a LAN IP blocks the camera
+# entirely. Caddy terminates TLS here so each tablet sees an https:// origin,
+# then transparently proxies to the Node app on localhost.
+#
+# Configure via environment variables (see caddy.env):
+#   RD_HOSTNAME      hostname or LAN IP the tablets use (e.g. display.lan or 192.168.1.50)
+#   RD_BACKEND_PORT  port the Node app listens on (must match PORT in .env; default 3000)
+#
+# Certs are issued by Caddy's own local CA — no public domain or internet needed.
+# Install that CA's root certificate on each tablet once (see README.md), after
+# which the https:// origin is fully trusted and the camera API is unblocked.
+
+{
+	# Use Caddy's internal CA instead of a public ACME provider (Let's Encrypt).
+	# Ideal for an isolated LAN with no public DNS.
+	local_certs
+}
+
+https://{$RD_HOSTNAME} {
+	encode zstd gzip
+
+	# WebSocket (/ws) and HTTP requests both proxy transparently.
+	reverse_proxy 127.0.0.1:{$RD_BACKEND_PORT:3000}
+}
+
+# Plain-HTTP listener: serves the root CA for bootstrapping, redirects all else.
+# A tablet that hasn't trusted the CA yet can't load HTTPS, so it downloads the
+# cert here first at  http://<host>/rootca.crt , installs it, then HTTPS works.
+http://{$RD_HOSTNAME} {
+	@rootca path /rootca.crt
+	handle @rootca {
+		root * /var/lib/caddy/data/caddy/pki/authorities/local
+		rewrite * /root.crt
+		file_server
+	}
+	handle {
+		redir https://{$RD_HOSTNAME}{uri} permanent
+	}
+}

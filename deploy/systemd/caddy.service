@@ -1,0 +1,23 @@
+[Unit]
+Description=Caddy (Room Display HTTPS proxy)
+Documentation=https://caddyserver.com/docs/
+After=network.target roomdisplay.service
+Wants=roomdisplay.service
+
+[Service]
+Type=notify
+EnvironmentFile=/opt/roomdisplay/deploy/caddy/caddy.env
+# Pin Caddy's storage so the internal CA root cert is at a known path:
+#   /var/lib/caddy/data/caddy/pki/authorities/local/root.crt
+Environment=XDG_DATA_HOME=/var/lib/caddy/data XDG_CONFIG_HOME=/var/lib/caddy/config
+ExecStart=/usr/bin/caddy run --environ --config /opt/roomdisplay/deploy/caddy/Caddyfile --adapter caddyfile
+ExecReload=/usr/bin/caddy reload --config /opt/roomdisplay/deploy/caddy/Caddyfile --adapter caddyfile --force
+Restart=on-failure
+RestartSec=5
+# Allow binding privileged ports 80/443 without running as root.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+StandardOutput=append:/var/log/roomdisplay/caddy.log
+StandardError=append:/var/log/roomdisplay/caddy.log
+
+[Install]
+WantedBy=multi-user.target
