@@ -283,7 +283,7 @@ export function RoomDetailPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { setEditSlug(room.slug); setSlugError(null); setEditingSlug(true); }}
-                  className="group flex items-center gap-1 font-mono text-xs text-indigo-400 underline decoration-dashed underline-offset-2 hover:text-indigo-300 transition-colors"
+                  className="group flex items-center gap-1 font-mono text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                   title="Click to edit slug"
                 >
                   /display/{room.slug}
