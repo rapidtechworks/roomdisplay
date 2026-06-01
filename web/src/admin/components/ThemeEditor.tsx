@@ -1,16 +1,13 @@
 /**
  * ThemeEditor — reusable full theme editor.
- * Used by both ThemePage (global) and RoomThemePage (per-room override).
- *
- * Layout:
- *   1. Background   — always visible
- *   2. Logo         — always visible
- *   3. Advanced Settings — collapsible wrapper
- *        └ each sub-section inside is individually collapsible
+ * Used by both ThemePage (global, layout="three-panel") and RoomThemePage (per-room, default single-column).
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { Theme } from '@roomdisplay/shared';
+
+const IFRAME_W = 1280;
+const IFRAME_H = 720;
 
 // ─── Always-open section (Background, Logo) ───────────────────────────────────
 
@@ -205,7 +202,7 @@ function toHex(val: string): string {
   return '#000000';
 }
 
-// ─── Theme presets (colour/appearance only — never touches fonts or sizes) ─────
+// ─── Theme presets ─────────────────────────────────────────────────────────────
 
 const COLOR_PRESET_DARK: Partial<Theme> = {
   backgroundColor:          '#0f172a',
@@ -278,503 +275,407 @@ export interface ThemeEditorProps {
   uploadingLogo:    boolean;
   saving:           boolean;
   onSave:           () => void;
+  /** When set, renders a two-column layout with an iframe preview on the right. */
+  layout?:                'single' | 'three-panel';
+  previewSlug?:           string;
+  previewRoomOptions?:    { slug: string; name: string }[];
+  onPreviewRoomChange?:   (slug: string) => void;
 }
 
 export function ThemeEditor({
   value, onChange, onUploadImage, uploadingImage, uploadingLogo, saving, onSave,
+  layout = 'single', previewSlug, previewRoomOptions, onPreviewRoomChange,
 }: ThemeEditorProps) {
   const fileRef     = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
+  // ResizeObserver for iframe scaling (three-panel only)
+  const [iframeColW, setIframeColW] = useState(0);
+  const roRef = useRef<ResizeObserver | null>(null);
+  const iframeContainerRef = useCallback((el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    roRef.current = null;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry?.contentRect.width ?? 0;
+      if (w > 0) setIframeColW(w);
+    });
+    ro.observe(el);
+    roRef.current = ro;
+  }, []);
+  const previewScale = iframeColW > 0 ? iframeColW / IFRAME_W : 0;
+
   const set = <K extends keyof Theme>(key: K, val: Theme[K]) =>
     onChange({ [key]: val } as Partial<Theme>);
 
-  return (
-    <div>
+  // ── Section content ──────────────────────────────────────────────────────────
 
-      {/* ══ 0. PRESETS ═══════════════════════════════════════════════════════════ */}
-      <div className="mb-6 rounded-xl border border-gray-800 bg-gray-900 px-5 py-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
-          Colour Presets
-        </p>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => onChange(COLOR_PRESET_DARK)}
-            className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:border-indigo-500 hover:text-white transition-colors"
-          >
-            <span>🌙</span> Dark
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange(COLOR_PRESET_LIGHT)}
-            className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:border-indigo-500 hover:text-white transition-colors"
-          >
-            <span>☀️</span> Light
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-gray-500">
-          Applies colour defaults only — fonts, sizes, and logo are unchanged.
-        </p>
-      </div>
-
-      {/* ══ 1. BACKGROUND ════════════════════════════════════════════════════════ */}
-      <Section title="Background">
-        <ColorField
-          label="Solid background colour (no image)"
-          value={value.backgroundColor}
-          onChange={(v) => set('backgroundColor', v)}
-          wide
-        />
-
-        <Field label="Background image — upload from computer" wide>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              disabled={uploadingImage}
-              onClick={() => fileRef.current?.click()}
-              className="btn-secondary text-sm disabled:opacity-50"
-            >
-              {uploadingImage ? 'Uploading…' : 'Choose file…'}
-            </button>
-            {value.defaultBackgroundImagePath && (
-              <span className="font-mono text-xs text-gray-400 truncate max-w-[200px]">
-                {value.defaultBackgroundImagePath}
-              </span>
-            )}
-            {value.defaultBackgroundImagePath && (
-              <button
-                type="button"
-                onClick={() => set('defaultBackgroundImagePath', '')}
-                className="text-xs text-red-400 hover:text-red-300"
-              >
-                Remove
-              </button>
-            )}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void onUploadImage(f, 'background');
-                e.target.value = '';
-              }}
-            />
-          </div>
-        </Field>
-
-        <TextField
-          label="Background image — external URL (overrides upload)"
-          value={value.backgroundImageUrl ?? ''}
-          onChange={(v) => set('backgroundImageUrl', v || null)}
-          placeholder="https://…"
-          wide
-        />
-
-        {(value.backgroundImageUrl || value.defaultBackgroundImagePath) && (
-          <Field label="Preview" wide>
-            <img
-              src={value.backgroundImageUrl ?? value.defaultBackgroundImagePath}
-              alt="Background preview"
-              className="h-24 w-full rounded-lg object-cover opacity-80"
-            />
-          </Field>
-        )}
-
-        <ColorField
-          label="Image scrim colour"
-          value={value.scrimColor}
-          onChange={(v) => set('scrimColor', v)}
-        />
-        <RangeField
-          label="Scrim opacity"
-          value={value.scrimOpacity}
-          onChange={(v) => set('scrimOpacity', v)}
-          min={0} max={0.95} step={0.05}
-        />
-      </Section>
-
-      {/* ══ 2. LOGO ══════════════════════════════════════════════════════════════ */}
-      <Section title="Logo">
-        <Field label="Logo image — upload from computer" wide>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              disabled={uploadingLogo}
-              onClick={() => logoFileRef.current?.click()}
-              className="btn-secondary text-sm disabled:opacity-50"
-            >
-              {uploadingLogo ? 'Uploading…' : 'Choose file…'}
-            </button>
-            {value.logoImagePath && (
-              <span className="font-mono text-xs text-gray-400 truncate max-w-[200px]">
-                {value.logoImagePath}
-              </span>
-            )}
-            {value.logoImagePath && (
-              <button
-                type="button"
-                onClick={() => set('logoImagePath', null)}
-                className="text-xs text-red-400 hover:text-red-300"
-              >
-                Remove
-              </button>
-            )}
-            <input
-              ref={logoFileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void onUploadImage(f, 'logo');
-                e.target.value = '';
-              }}
-            />
-          </div>
-        </Field>
-
-        <TextField
-          label="Logo image — external URL (overrides upload)"
-          value={value.logoImageUrl ?? ''}
-          onChange={(v) => set('logoImageUrl', v || null)}
-          placeholder="https://…"
-          wide
-        />
-
-        {(value.logoImageUrl || value.logoImagePath) && (
-          <Field label="Preview" wide>
-            <img
-              src={value.logoImageUrl ?? value.logoImagePath ?? ''}
-              alt="Logo preview"
-              className="h-16 rounded-lg object-contain bg-gray-800 p-2"
-            />
-          </Field>
-        )}
-
-        <SelectField
-          label="Position"
-          value={value.logoPosition}
-          onChange={(v) => set('logoPosition', v)}
-          options={[
-            { label: 'None (hidden)',          value: 'none' },
-            { label: 'Beside Book Now button', value: 'beside-book-now' },
-            { label: 'Top left corner',        value: 'top-left' },
-            { label: 'Top right corner',       value: 'top-right' },
-            { label: 'Bottom left corner',     value: 'bottom-left' },
-            { label: 'Bottom right corner',    value: 'bottom-right' },
-          ]}
-        />
-
-        <TextField
-          label="Max height (CSS)"
-          value={value.logoMaxHeight}
-          onChange={(v) => set('logoMaxHeight', v)}
-          placeholder="80px"
-        />
-      </Section>
-
-      {/* ══ 3. ADVANCED SETTINGS ═════════════════════════════════════════════════ */}
-      <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900/50">
-
-        {/* Advanced toggle header */}
+  const presetsBlock = (
+    <div className="mb-6 rounded-xl border border-gray-800 bg-gray-900 px-5 py-4">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
+        Colour Presets
+      </p>
+      <div className="flex gap-3">
         <button
           type="button"
-          onClick={() => setAdvancedOpen((o) => !o)}
-          className="flex w-full items-center justify-between px-5 py-4 text-left"
+          onClick={() => onChange(COLOR_PRESET_DARK)}
+          className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:border-indigo-500 hover:text-white transition-colors"
         >
-          <div>
-            <span className="text-sm font-semibold text-gray-300">Advanced Settings</span>
-            <span className="ml-3 text-xs text-gray-600">
-              Typography · Colours · Agenda panel · Offline banner
-            </span>
-          </div>
-          <span
-            className="text-gray-500 transition-transform duration-200"
-            style={{ transform: advancedOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-          >
-            ▾
-          </span>
+          <span>🌙</span> Dark
         </button>
-
-        {advancedOpen && (
-          <div className="border-t border-gray-700 px-5 pb-5 pt-4">
-
-            {/* Status colours */}
-            <CollapseSection title="Status Colours">
-              <ColorField
-                label="Available"
-                value={value.accentColorAvailable}
-                onChange={(v) => set('accentColorAvailable', v)}
-              />
-              <ColorField
-                label="In Use / Busy"
-                value={value.accentColorBusy}
-                onChange={(v) => set('accentColorBusy', v)}
-              />
-              <ColorField
-                label="Ending Soon"
-                value={value.accentColorEndingSoon}
-                onChange={(v) => set('accentColorEndingSoon', v)}
-              />
-            </CollapseSection>
-
-            {/* Room name */}
-            <CollapseSection title="Room Name Typography">
-              <TextField
-                label="Font family"
-                value={value.roomNameFontFamily}
-                onChange={(v) => set('roomNameFontFamily', v)}
-                placeholder="'Inter', system-ui, sans-serif"
-                wide
-              />
-              <TextField
-                label="Font size (CSS)"
-                value={value.roomNameFontSize}
-                onChange={(v) => set('roomNameFontSize', v)}
-                placeholder="96px"
-              />
-              <SelectField
-                label="Font weight"
-                value={value.roomNameFontWeight}
-                onChange={(v) => set('roomNameFontWeight', v)}
-                options={WEIGHT_OPTIONS}
-              />
-              <ColorField
-                label="Colour"
-                value={value.roomNameColor}
-                onChange={(v) => set('roomNameColor', v)}
-              />
-              <TextField
-                label="Text shadow (CSS)"
-                value={value.roomNameTextShadow}
-                onChange={(v) => set('roomNameTextShadow', v)}
-                placeholder="0 2px 16px rgba(0,0,0,0.3)"
-                wide
-              />
-            </CollapseSection>
-
-            {/* Clock */}
-            <CollapseSection title="Clock Typography">
-              <TextField
-                label="Font family"
-                value={value.clockFontFamily}
-                onChange={(v) => set('clockFontFamily', v)}
-                placeholder="'Inter', system-ui, sans-serif"
-                wide
-              />
-              <TextField
-                label="Font size (CSS)"
-                value={value.clockFontSize}
-                onChange={(v) => set('clockFontSize', v)}
-                placeholder="clamp(20px, 2.5vw, 36px)"
-              />
-              <ColorField
-                label="Colour"
-                value={value.clockColor}
-                onChange={(v) => set('clockColor', v)}
-              />
-              <RangeField
-                label="Opacity"
-                value={value.clockOpacity}
-                onChange={(v) => set('clockOpacity', v)}
-                min={0} max={1} step={0.05}
-              />
-            </CollapseSection>
-
-            {/* Status word */}
-            <CollapseSection title="Status Word Typography">
-              <TextField
-                label="Font size (CSS)"
-                value={value.statusFontSize}
-                onChange={(v) => set('statusFontSize', v)}
-                placeholder="120px"
-              />
-              <SelectField
-                label="Font weight"
-                value={value.statusFontWeight}
-                onChange={(v) => set('statusFontWeight', v)}
-                options={WEIGHT_OPTIONS}
-              />
-              <TextField
-                label="Text shadow (CSS)"
-                value={value.statusTextShadow}
-                onChange={(v) => set('statusTextShadow', v)}
-                placeholder="3px 4px 24px rgba(0,0,0,0.5)"
-                wide
-              />
-            </CollapseSection>
-
-            {/* Current event */}
-            <CollapseSection title="Current Event Typography">
-              <TextField
-                label="Font family"
-                value={value.eventFontFamily}
-                onChange={(v) => set('eventFontFamily', v)}
-                placeholder="'Inter', system-ui, sans-serif"
-                wide
-              />
-              <TextField
-                label="Font size (CSS)"
-                value={value.eventFontSize}
-                onChange={(v) => set('eventFontSize', v)}
-                placeholder="88px"
-              />
-              <SelectField
-                label="Font weight"
-                value={value.eventFontWeight}
-                onChange={(v) => set('eventFontWeight', v)}
-                options={WEIGHT_OPTIONS}
-              />
-              <ColorField
-                label="Colour"
-                value={value.eventColor}
-                onChange={(v) => set('eventColor', v)}
-              />
-            </CollapseSection>
-
-            {/* Book Now button */}
-            <CollapseSection title="Book Now Button">
-              <ColorField
-                label="Button colour"
-                value={value.accentColorBookButton}
-                onChange={(v) => set('accentColorBookButton', v)}
-              />
-              <ColorField
-                label="Text colour"
-                value={value.bookButtonTextColor}
-                onChange={(v) => set('bookButtonTextColor', v)}
-              />
-              <TextField
-                label="Font size (CSS)"
-                value={value.bookButtonFontSize}
-                onChange={(v) => set('bookButtonFontSize', v)}
-                placeholder="clamp(18px, 2.2vw, 28px)"
-              />
-              <TextField
-                label="Border radius (CSS)"
-                value={value.buttonBorderRadius}
-                onChange={(v) => set('buttonBorderRadius', v)}
-                placeholder="16px"
-              />
-            </CollapseSection>
-
-            {/* Agenda panel */}
-            <CollapseSection title="Agenda Panel">
-              <ColorField
-                label="Panel background (glass tint)"
-                value={value.glassPanelTint}
-                onChange={(v) => set('glassPanelTint', v)}
-                wide
-              />
-              <RangeField
-                label="Backdrop blur (px)"
-                value={value.glassPanelBlur}
-                onChange={(v) => set('glassPanelBlur', v)}
-                min={0} max={60} step={2}
-              />
-              <ColorField
-                label="Panel border colour"
-                value={value.glassPanelBorderColor}
-                onChange={(v) => set('glassPanelBorderColor', v)}
-                wide
-              />
-              <TextField
-                label="Panel &amp; button drop shadow (CSS)"
-                value={value.glassPanelShadow}
-                onChange={(v) => set('glassPanelShadow', v)}
-                placeholder="8px 12px 40px rgba(0,0,0,0.45)"
-                wide
-              />
-              <ColorField
-                label="Day header text colour"
-                value={value.agendaDayHeaderColor}
-                onChange={(v) => set('agendaDayHeaderColor', v)}
-              />
-              <ColorField
-                label="Event text colour"
-                value={value.agendaEventColor}
-                onChange={(v) => set('agendaEventColor', v)}
-              />
-              <ColorField
-                label="Muted / secondary text colour"
-                value={value.agendaMutedColor}
-                onChange={(v) => set('agendaMutedColor', v)}
-              />
-              <ColorField
-                label="Event card background"
-                value={value.agendaEventItemBackground}
-                onChange={(v) => set('agendaEventItemBackground', v)}
-                wide
-              />
-              <TextField
-                label="Chip border radius (CSS)"
-                value={value.chipBorderRadius}
-                onChange={(v) => set('chipBorderRadius', v)}
-                placeholder="16px"
-              />
-            </CollapseSection>
-
-            {/* Screensaver */}
-            <CollapseSection title="Screensaver">
-              <ToggleField
-                label="Enable screensaver"
-                value={value.screensaverEnabled}
-                onChange={(v) => set('screensaverEnabled', v)}
-                note="Activates after idle period when room is available. Never shows during a live meeting."
-                wide
-              />
-              <RangeField
-                label="Idle time before activation (minutes)"
-                value={value.screensaverIdleMinutes}
-                onChange={(v) => set('screensaverIdleMinutes', v)}
-                min={1} max={30} step={1}
-                wide
-              />
-              <RangeField
-                label="Wake display before next event (minutes)"
-                value={value.screensaverPreEventMinutes}
-                onChange={(v) => set('screensaverPreEventMinutes', v)}
-                min={5} max={60} step={5}
-                wide
-              />
-              <ToggleField
-                label="Wake on camera motion"
-                value={value.screensaverUseCameraMotion}
-                onChange={(v) => set('screensaverUseCameraMotion', v)}
-                note="Uses the tablet's front camera to detect movement and wake the screen. Camera permission required — grant once in the browser. Falls back to touch-only if unavailable."
-                wide
-              />
-              <ColorField
-                label="Drifting text colour"
-                value={value.screensaverTextColor}
-                onChange={(v) => set('screensaverTextColor', v)}
-                wide
-              />
-            </CollapseSection>
-
-            {/* Offline banner */}
-            <CollapseSection title="Offline Banner">
-              <ColorField
-                label="Background"
-                value={value.offlineBannerBackground}
-                onChange={(v) => set('offlineBannerBackground', v)}
-              />
-              <ColorField
-                label="Text colour"
-                value={value.offlineBannerTextColor}
-                onChange={(v) => set('offlineBannerTextColor', v)}
-              />
-            </CollapseSection>
-
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => onChange(COLOR_PRESET_LIGHT)}
+          className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 hover:border-indigo-500 hover:text-white transition-colors"
+        >
+          <span>☀️</span> Light
+        </button>
       </div>
+      <p className="mt-2 text-xs text-gray-500">
+        Applies colour defaults only — fonts, sizes, and logo are unchanged.
+      </p>
+    </div>
+  );
 
-      {/* ── Save ─────────────────────────────────────────────────────────────── */}
+  const backgroundBlock = (
+    <Section title="Background">
+      <ColorField
+        label="Solid background colour (no image)"
+        value={value.backgroundColor}
+        onChange={(v) => set('backgroundColor', v)}
+        wide
+      />
+      <Field label="Background image — upload from computer" wide>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            disabled={uploadingImage}
+            onClick={() => fileRef.current?.click()}
+            className="btn-secondary text-sm disabled:opacity-50"
+          >
+            {uploadingImage ? 'Uploading…' : 'Choose file…'}
+          </button>
+          {value.defaultBackgroundImagePath && (
+            <span className="font-mono text-xs text-gray-400 truncate max-w-[200px]">
+              {value.defaultBackgroundImagePath}
+            </span>
+          )}
+          {value.defaultBackgroundImagePath && (
+            <button
+              type="button"
+              onClick={() => set('defaultBackgroundImagePath', '')}
+              className="text-xs text-red-400 hover:text-red-300"
+            >
+              Remove
+            </button>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onUploadImage(f, 'background');
+              e.target.value = '';
+            }}
+          />
+        </div>
+      </Field>
+      <TextField
+        label="Background image — external URL (overrides upload)"
+        value={value.backgroundImageUrl ?? ''}
+        onChange={(v) => set('backgroundImageUrl', v || null)}
+        placeholder="https://…"
+        wide
+      />
+      {(value.backgroundImageUrl || value.defaultBackgroundImagePath) && (
+        <Field label="Preview" wide>
+          <img
+            src={value.backgroundImageUrl ?? value.defaultBackgroundImagePath}
+            alt="Background preview"
+            className="h-24 w-full rounded-lg object-cover opacity-80"
+          />
+        </Field>
+      )}
+      <ColorField
+        label="Image scrim colour"
+        value={value.scrimColor}
+        onChange={(v) => set('scrimColor', v)}
+      />
+      <RangeField
+        label="Scrim opacity"
+        value={value.scrimOpacity}
+        onChange={(v) => set('scrimOpacity', v)}
+        min={0} max={0.95} step={0.05}
+      />
+    </Section>
+  );
+
+  const logoBlock = (
+    <Section title="Logo">
+      <Field label="Logo image — upload from computer" wide>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            disabled={uploadingLogo}
+            onClick={() => logoFileRef.current?.click()}
+            className="btn-secondary text-sm disabled:opacity-50"
+          >
+            {uploadingLogo ? 'Uploading…' : 'Choose file…'}
+          </button>
+          {value.logoImagePath && (
+            <span className="font-mono text-xs text-gray-400 truncate max-w-[200px]">
+              {value.logoImagePath}
+            </span>
+          )}
+          {value.logoImagePath && (
+            <button
+              type="button"
+              onClick={() => set('logoImagePath', null)}
+              className="text-xs text-red-400 hover:text-red-300"
+            >
+              Remove
+            </button>
+          )}
+          <input
+            ref={logoFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onUploadImage(f, 'logo');
+              e.target.value = '';
+            }}
+          />
+        </div>
+      </Field>
+      <TextField
+        label="Logo image — external URL (overrides upload)"
+        value={value.logoImageUrl ?? ''}
+        onChange={(v) => set('logoImageUrl', v || null)}
+        placeholder="https://…"
+        wide
+      />
+      {(value.logoImageUrl || value.logoImagePath) && (
+        <Field label="Preview" wide>
+          <img
+            src={value.logoImageUrl ?? value.logoImagePath ?? ''}
+            alt="Logo preview"
+            className="h-16 rounded-lg object-contain bg-gray-800 p-2"
+          />
+        </Field>
+      )}
+      <SelectField
+        label="Position"
+        value={value.logoPosition}
+        onChange={(v) => set('logoPosition', v)}
+        options={[
+          { label: 'None (hidden)',          value: 'none' },
+          { label: 'Beside Book Now button', value: 'beside-book-now' },
+          { label: 'Top left corner',        value: 'top-left' },
+          { label: 'Top right corner',       value: 'top-right' },
+          { label: 'Bottom left corner',     value: 'bottom-left' },
+          { label: 'Bottom right corner',    value: 'bottom-right' },
+        ]}
+      />
+      <TextField
+        label="Max height (CSS)"
+        value={value.logoMaxHeight}
+        onChange={(v) => set('logoMaxHeight', v)}
+        placeholder="80px"
+      />
+    </Section>
+  );
+
+  const advancedBlock = (
+    <div className="rounded-xl border border-gray-700 bg-gray-900/50">
+      <button
+        type="button"
+        onClick={() => setAdvancedOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-5 py-4 text-left"
+      >
+        <div>
+          <span className="text-sm font-semibold text-gray-300">Advanced Settings</span>
+          <span className="ml-3 text-xs text-gray-600">
+            Typography · Colours · Agenda panel · Offline banner
+          </span>
+        </div>
+        <span
+          className="text-gray-500 transition-transform duration-200"
+          style={{ transform: advancedOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        >
+          ▾
+        </span>
+      </button>
+
+      {advancedOpen && (
+        <div className="border-t border-gray-700 px-5 pb-5 pt-4">
+
+          <CollapseSection title="Status Colours">
+            <ColorField label="Available" value={value.accentColorAvailable} onChange={(v) => set('accentColorAvailable', v)} />
+            <ColorField label="In Use / Busy" value={value.accentColorBusy} onChange={(v) => set('accentColorBusy', v)} />
+            <ColorField label="Ending Soon" value={value.accentColorEndingSoon} onChange={(v) => set('accentColorEndingSoon', v)} />
+          </CollapseSection>
+
+          <CollapseSection title="Room Name Typography">
+            <TextField label="Font family" value={value.roomNameFontFamily} onChange={(v) => set('roomNameFontFamily', v)} placeholder="'Inter', system-ui, sans-serif" wide />
+            <TextField label="Font size (CSS)" value={value.roomNameFontSize} onChange={(v) => set('roomNameFontSize', v)} placeholder="96px" />
+            <SelectField label="Font weight" value={value.roomNameFontWeight} onChange={(v) => set('roomNameFontWeight', v)} options={WEIGHT_OPTIONS} />
+            <ColorField label="Colour" value={value.roomNameColor} onChange={(v) => set('roomNameColor', v)} />
+            <TextField label="Text shadow (CSS)" value={value.roomNameTextShadow} onChange={(v) => set('roomNameTextShadow', v)} placeholder="0 2px 16px rgba(0,0,0,0.3)" wide />
+          </CollapseSection>
+
+          <CollapseSection title="Clock Typography">
+            <TextField label="Font family" value={value.clockFontFamily} onChange={(v) => set('clockFontFamily', v)} placeholder="'Inter', system-ui, sans-serif" wide />
+            <TextField label="Font size (CSS)" value={value.clockFontSize} onChange={(v) => set('clockFontSize', v)} placeholder="clamp(20px, 2.5vw, 36px)" />
+            <ColorField label="Colour" value={value.clockColor} onChange={(v) => set('clockColor', v)} />
+            <RangeField label="Opacity" value={value.clockOpacity} onChange={(v) => set('clockOpacity', v)} min={0} max={1} step={0.05} />
+          </CollapseSection>
+
+          <CollapseSection title="Status Word Typography">
+            <TextField label="Font size (CSS)" value={value.statusFontSize} onChange={(v) => set('statusFontSize', v)} placeholder="120px" />
+            <SelectField label="Font weight" value={value.statusFontWeight} onChange={(v) => set('statusFontWeight', v)} options={WEIGHT_OPTIONS} />
+            <TextField label="Text shadow (CSS)" value={value.statusTextShadow} onChange={(v) => set('statusTextShadow', v)} placeholder="3px 4px 24px rgba(0,0,0,0.5)" wide />
+          </CollapseSection>
+
+          <CollapseSection title="Current Event Typography">
+            <TextField label="Font family" value={value.eventFontFamily} onChange={(v) => set('eventFontFamily', v)} placeholder="'Inter', system-ui, sans-serif" wide />
+            <TextField label="Font size (CSS)" value={value.eventFontSize} onChange={(v) => set('eventFontSize', v)} placeholder="88px" />
+            <SelectField label="Font weight" value={value.eventFontWeight} onChange={(v) => set('eventFontWeight', v)} options={WEIGHT_OPTIONS} />
+            <ColorField label="Colour" value={value.eventColor} onChange={(v) => set('eventColor', v)} />
+          </CollapseSection>
+
+          <CollapseSection title="Book Now Button">
+            <ColorField label="Button colour" value={value.accentColorBookButton} onChange={(v) => set('accentColorBookButton', v)} />
+            <ColorField label="Text colour" value={value.bookButtonTextColor} onChange={(v) => set('bookButtonTextColor', v)} />
+            <TextField label="Font size (CSS)" value={value.bookButtonFontSize} onChange={(v) => set('bookButtonFontSize', v)} placeholder="clamp(18px, 2.2vw, 28px)" />
+            <TextField label="Border radius (CSS)" value={value.buttonBorderRadius} onChange={(v) => set('buttonBorderRadius', v)} placeholder="16px" />
+          </CollapseSection>
+
+          <CollapseSection title="Agenda Panel">
+            <ColorField label="Panel background (glass tint)" value={value.glassPanelTint} onChange={(v) => set('glassPanelTint', v)} wide />
+            <RangeField label="Backdrop blur (px)" value={value.glassPanelBlur} onChange={(v) => set('glassPanelBlur', v)} min={0} max={60} step={2} />
+            <ColorField label="Panel border colour" value={value.glassPanelBorderColor} onChange={(v) => set('glassPanelBorderColor', v)} wide />
+            <TextField label="Panel &amp; button drop shadow (CSS)" value={value.glassPanelShadow} onChange={(v) => set('glassPanelShadow', v)} placeholder="8px 12px 40px rgba(0,0,0,0.45)" wide />
+            <ColorField label="Day header text colour" value={value.agendaDayHeaderColor} onChange={(v) => set('agendaDayHeaderColor', v)} />
+            <ColorField label="Event text colour" value={value.agendaEventColor} onChange={(v) => set('agendaEventColor', v)} />
+            <ColorField label="Muted / secondary text colour" value={value.agendaMutedColor} onChange={(v) => set('agendaMutedColor', v)} />
+            <ColorField label="Event card background" value={value.agendaEventItemBackground} onChange={(v) => set('agendaEventItemBackground', v)} wide />
+            <TextField label="Chip border radius (CSS)" value={value.chipBorderRadius} onChange={(v) => set('chipBorderRadius', v)} placeholder="16px" />
+          </CollapseSection>
+
+          <CollapseSection title="Screensaver">
+            <ToggleField label="Enable screensaver" value={value.screensaverEnabled} onChange={(v) => set('screensaverEnabled', v)} note="Activates after idle period when room is available. Never shows during a live meeting." wide />
+            <RangeField label="Idle time before activation (minutes)" value={value.screensaverIdleMinutes} onChange={(v) => set('screensaverIdleMinutes', v)} min={1} max={30} step={1} wide />
+            <RangeField label="Wake display before next event (minutes)" value={value.screensaverPreEventMinutes} onChange={(v) => set('screensaverPreEventMinutes', v)} min={5} max={60} step={5} wide />
+            <ToggleField label="Wake on camera motion" value={value.screensaverUseCameraMotion} onChange={(v) => set('screensaverUseCameraMotion', v)} note="Uses the tablet's front camera to detect movement and wake the screen. Camera permission required — grant once in the browser. Falls back to touch-only if unavailable." wide />
+            <ColorField label="Drifting text colour" value={value.screensaverTextColor} onChange={(v) => set('screensaverTextColor', v)} wide />
+          </CollapseSection>
+
+          <CollapseSection title="Offline Banner">
+            <ColorField label="Background" value={value.offlineBannerBackground} onChange={(v) => set('offlineBannerBackground', v)} />
+            <ColorField label="Text colour" value={value.offlineBannerTextColor} onChange={(v) => set('offlineBannerTextColor', v)} />
+          </CollapseSection>
+
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Three-panel layout ────────────────────────────────────────────────────────
+
+  if (layout === 'three-panel') {
+    return (
+      <div className="grid grid-cols-2 h-full">
+
+        {/* Left column — primary settings, independently scrollable */}
+        <div className="overflow-y-auto border-r border-gray-800">
+          <div className="px-8 py-6">
+            {presetsBlock}
+            {backgroundBlock}
+            {logoBlock}
+          </div>
+          {/* Save button sticks to bottom of left column's scroll viewport */}
+          <div className="sticky bottom-0 flex justify-end border-t border-gray-800 bg-gray-950 px-8 py-4">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onSave}
+              className="btn-primary px-8 disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </div>
+
+        {/* Right column — preview (top) + advanced settings (bottom) */}
+        <div className="flex flex-col h-full overflow-hidden">
+
+          {/* Room picker bar */}
+          {previewRoomOptions && previewRoomOptions.length > 0 && (
+            <div className="shrink-0 flex items-center gap-3 border-b border-gray-800 bg-gray-900 px-4 py-2.5">
+              <span className="text-xs text-gray-500 shrink-0">Preview room:</span>
+              <select
+                value={previewSlug ?? ''}
+                onChange={(e) => onPreviewRoomChange?.(e.target.value)}
+                className="input text-xs py-1 flex-1 max-w-[240px]"
+              >
+                {previewRoomOptions.map((r) => (
+                  <option key={r.slug} value={r.slug}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Iframe — 16:9 aspect ratio, scales to column width */}
+          <div
+            ref={iframeContainerRef}
+            className="relative shrink-0 w-full bg-gray-950 overflow-hidden"
+            style={{ aspectRatio: `${IFRAME_W}/${IFRAME_H}` }}
+          >
+            {previewSlug && previewScale > 0 ? (
+              <iframe
+                src={`/display/${previewSlug}?preview=1`}
+                title="Theme preview"
+                tabIndex={-1}
+                className="absolute top-0 left-0 border-none pointer-events-none select-none"
+                style={{
+                  width:           IFRAME_W,
+                  height:          IFRAME_H,
+                  transform:       `scale(${previewScale})`,
+                  transformOrigin: 'top left',
+                }}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-gray-600">
+                {previewRoomOptions?.length === 0
+                  ? 'No rooms yet — add a room to preview the theme.'
+                  : 'Select a room to preview'}
+              </div>
+            )}
+          </div>
+
+          {/* Advanced settings — takes remaining height, scrollable */}
+          <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4">
+            {advancedBlock}
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ── Single-column layout (default, used by RoomThemePage) ────────────────────
+
+  return (
+    <div>
+      {presetsBlock}
+      {backgroundBlock}
+      {logoBlock}
+      <div className="mb-6">{advancedBlock}</div>
       <div className="sticky bottom-0 flex justify-end border-t border-gray-800 bg-gray-950 py-4">
         <button
           type="button"
@@ -785,7 +686,6 @@ export function ThemeEditor({
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </div>
-
     </div>
   );
 }

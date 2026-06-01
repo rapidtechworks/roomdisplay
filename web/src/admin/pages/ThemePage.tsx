@@ -12,17 +12,29 @@ export function ThemePage() {
     queryFn:  () => api.getGlobalTheme(),
   });
 
+  const { data: rooms } = useQuery({
+    queryKey: ['rooms'],
+    queryFn:  () => api.getRooms(),
+  });
+
   const [draft,          setDraft]          = useState<Theme | null>(null);
   const [saving,         setSaving]         = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingLogo,  setUploadingLogo]  = useState(false);
   const [savedMsg,       setSavedMsg]       = useState(false);
   const [error,          setError]          = useState<string | null>(null);
+  const [previewSlug,    setPreviewSlug]    = useState<string | undefined>(undefined);
 
-  // Initialise (or re-initialise) the draft whenever server data arrives
   useEffect(() => {
     if (data && !draft) setDraft(data.settings);
   }, [data, draft]);
+
+  // Default preview to the first room once rooms load
+  useEffect(() => {
+    if (rooms && rooms.length > 0 && !previewSlug) {
+      setPreviewSlug(rooms[0]!.slug);
+    }
+  }, [rooms, previewSlug]);
 
   const handleChange = (updates: Partial<Theme>) => {
     setDraft((d) => d ? { ...d, ...updates } : null);
@@ -78,10 +90,13 @@ export function ThemePage() {
     );
   }
 
+  const roomOptions = rooms?.map((r) => ({ slug: r.slug, name: r.displayName })) ?? [];
+
   return (
-    <div className="max-w-3xl p-8">
+    <div className="flex h-full flex-col overflow-hidden">
+
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="shrink-0 flex items-start justify-between border-b border-gray-800 px-8 py-5">
         <div>
           <h1 className="text-2xl font-semibold text-white">Global Theme</h1>
           <p className="mt-0.5 text-sm text-gray-500">
@@ -96,22 +111,30 @@ export function ThemePage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-900 bg-red-950/20 px-4 py-3 text-sm text-red-400">
+        <div className="shrink-0 mx-8 mt-4 rounded-lg border border-red-900 bg-red-950/20 px-4 py-3 text-sm text-red-400">
           {error}
         </div>
       )}
 
+      {/* Editor — takes remaining height */}
       {draft && (
-        <ThemeEditor
-          value={draft}
-          onChange={handleChange}
-          onUploadImage={handleUploadImage}
-          uploadingImage={uploadingImage}
-          uploadingLogo={uploadingLogo}
-          saving={saving}
-          onSave={handleSave}
-        />
+        <div className="flex-1 min-h-0">
+          <ThemeEditor
+            value={draft}
+            onChange={handleChange}
+            onUploadImage={handleUploadImage}
+            uploadingImage={uploadingImage}
+            uploadingLogo={uploadingLogo}
+            saving={saving}
+            onSave={handleSave}
+            layout="three-panel"
+            previewSlug={previewSlug}
+            previewRoomOptions={roomOptions}
+            onPreviewRoomChange={setPreviewSlug}
+          />
+        </div>
       )}
+
     </div>
   );
 }
