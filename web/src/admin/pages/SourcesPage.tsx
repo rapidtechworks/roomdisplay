@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { api, ApiError } from '../api.ts';
+import { api, ApiError, type Source } from '../api.ts';
 
 type SourceType = 'ical' | 'pco';
 
@@ -10,6 +10,16 @@ interface PcoForm  { displayName: string; clientId: string; secret: string; poll
 
 const DEFAULT_ICAL: IcalForm = { displayName: '', url: '', pollIntervalSeconds: 300 };
 const DEFAULT_PCO:  PcoForm  = { displayName: '', clientId: '', secret: '', pollIntervalSeconds: 120 };
+
+function isStale(s: Source): boolean {
+  if (!s.lastSyncedAt || s.lastSyncStatus !== 'ok') return false;
+  return (Date.now() - new Date(s.lastSyncedAt).getTime()) > 2 * s.pollIntervalSeconds * 1000;
+}
+
+function effectiveStatus(s: Source): 'ok' | 'error' | 'pending' | 'stale' {
+  if (s.lastSyncStatus !== 'ok') return s.lastSyncStatus;
+  return isStale(s) ? 'stale' : 'ok';
+}
 
 export function SourcesPage() {
   const qc = useQueryClient();
@@ -23,6 +33,23 @@ export function SourcesPage() {
   const [icalForm, setIcal]       = useState<IcalForm>(DEFAULT_ICAL);
   const [pcoForm,  setPco]        = useState<PcoForm>(DEFAULT_PCO);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const [syncingId,  setSyncingId]  = useState<number | null>(null);
+  const [syncResult, setSyncResult] = useState<{ id: number; ok: boolean; msg: string } | null>(null);
+
+  const syncMutation = useMutation({
+    mutationFn: (id: number) => api.syncSource(id),
+    onMutate:   (id) => { setSyncingId(id); setSyncResult(null); },
+    onSettled:  ()   => setSyncingId(null),
+    onSuccess:  (r, id) => {
+      void qc.invalidateQueries({ queryKey: ['sources'] });
+      void qc.invalidateQueries({ queryKey: ['source', id] });
+      setSyncResult({ id, ok: r.status === 'ok', msg: r.message });
+    },
+    onError: (err, id) => {
+      setSyncResult({ id, ok: false, msg: err instanceof ApiError ? err.message : 'Sync failed.' });
+    },
+  });
 
   const create = useMutation({
     mutationFn: (body: unknown) => api.createSource(body),
@@ -81,29 +108,72 @@ export function SourcesPage() {
       )}
 
       <div className="space-y-2">
-        {sources?.map((s) => (
-          <Link
-            key={s.id}
-            to={`/admin/sources/${s.id}`}
-            className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900 px-4 py-4 transition-colors hover:border-gray-700"
-          >
-            <div className="flex items-center gap-3">
-              <StatusDot status={s.lastSyncStatus} />
-              <div>
-                <p className="font-medium text-white">{s.displayName}</p>
-                <p className="text-xs text-gray-500">
-                  {s.type.toUpperCase()} · {s.roomCount ?? 0} room{(s.roomCount ?? 0) !== 1 ? 's' : ''}
-                </p>
+        {sources?.map((s) => {
+          const status  = effectiveStatus(s);
+          const syncing = syncingId === s.id;
+          const result  = syncResult?.id === s.id ? syncResult : null;
+          const noRooms = (s.roomCount ?? 0) === 0 && s.lastSyncStatus !== 'pending';
+
+          return (
+            <div key={s.id} className="rounded-lg border border-gray-800 bg-gray-900 transition-colors hover:border-gray-700">
+              <div className="flex items-center justify-between px-4 py-4">
+                {/* Left: dot + name/meta — whole left side is the link */}
+                <Link
+                  to={`/admin/sources/${s.id}`}
+                  className="flex flex-1 items-center gap-3 min-w-0"
+                >
+                  <StatusDot status={status} />
+                  <div className="min-w-0">
+                    <p className="font-medium text-white">{s.displayName}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+                      <span>{s.type.toUpperCase()}</span>
+                      <span>·</span>
+                      <span>{s.roomCount ?? 0} room{(s.roomCount ?? 0) !== 1 ? 's' : ''}</span>
+                      {s.upcomingEventCount > 0 && (
+                        <>
+                          <span>·</span>
+                          <span className="text-indigo-400">{s.upcomingEventCount} event{s.upcomingEventCount !== 1 ? 's' : ''} (14 days)</span>
+                        </>
+                      )}
+                      {noRooms && (
+                        <>
+                          <span>·</span>
+                          <span className="text-amber-400">No rooms mapped</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+
+                {/* Right: last synced + stale hint + sync button */}
+                <div className="flex items-center gap-3 pl-4 shrink-0">
+                  <div className="text-right text-xs text-gray-500">
+                    {status === 'stale' && (
+                      <p className="text-amber-400">Sync overdue</p>
+                    )}
+                    {s.lastSyncedAt ? formatRelative(s.lastSyncedAt) : 'Never synced'}
+                    {s.lastSyncStatus === 'error' && (
+                      <p className="mt-0.5 text-red-400 line-clamp-1 max-w-[200px]">{s.lastSyncError}</p>
+                    )}
+                    {result && (
+                      <p className={`mt-0.5 ${result.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {result.ok ? '✓' : '✗'} {result.msg}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); syncMutation.mutate(s.id); }}
+                    disabled={syncing}
+                    title="Sync now"
+                    className="flex items-center justify-center rounded-md border border-gray-700 p-1.5 text-gray-400 hover:border-gray-500 hover:text-white disabled:opacity-40 transition-colors"
+                  >
+                    <SyncIcon spinning={syncing} />
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="text-right text-xs text-gray-500">
-              {s.lastSyncedAt ? formatRelative(s.lastSyncedAt) : 'Never synced'}
-              {s.lastSyncStatus === 'error' && (
-                <p className="mt-0.5 text-red-400 line-clamp-1 max-w-[200px]">{s.lastSyncError}</p>
-              )}
-            </div>
-          </Link>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── Create source modal ───────────────────────────────── */}
@@ -225,11 +295,12 @@ export function SourcesPage() {
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
-export function StatusDot({ status }: { status: 'ok' | 'error' | 'pending' }) {
+export function StatusDot({ status }: { status: 'ok' | 'error' | 'pending' | 'stale' }) {
   const color =
-    status === 'ok'    ? 'bg-emerald-500' :
-    status === 'error' ? 'bg-red-500'     :
-                         'bg-yellow-500';
+    status === 'ok'      ? 'bg-emerald-500' :
+    status === 'error'   ? 'bg-red-500'     :
+    status === 'stale'   ? 'bg-amber-400'   :
+                           'bg-yellow-500';
   return <span className={`inline-block h-2 w-2 rounded-full ${color} shrink-0`} />;
 }
 
@@ -259,6 +330,23 @@ export function Field({ label, children }: { label: string; children: React.Reac
 export function ErrorBox({ message }: { message: string }) {
   return (
     <p className="rounded-lg border border-red-900 bg-red-950 px-3 py-2 text-sm text-red-400">{message}</p>
+  );
+}
+
+function SyncIcon({ spinning }: { spinning: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={`h-4 w-4 ${spinning ? 'animate-spin' : ''}`}
+    >
+      <path
+        fillRule="evenodd"
+        d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z"
+        clipRule="evenodd"
+      />
+    </svg>
   );
 }
 

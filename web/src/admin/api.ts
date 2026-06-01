@@ -105,6 +105,19 @@ export interface Source {
   createdAt: string;
   credentials: Record<string, unknown>;
   roomCount?: number;
+  upcomingEventCount: number;
+}
+
+export interface SourceEvent {
+  event_id: number;
+  source: string;
+  external_id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  room_id: number;
+  room_name: string;
+  room_slug: string;
 }
 
 export interface Calendar {
@@ -219,6 +232,7 @@ export const api = {
   testSource:         (id: number)      => call<{ ok: boolean; message: string }>('POST', `/api/admin/sources/${id}/test`),
   syncSource:         (id: number)      => call<SyncResult>('POST',   `/api/admin/sources/${id}/sync`),
   getSourceCalendars: (id: number)      => call<Calendar[]>('GET',    `/api/admin/sources/${id}/calendars`),
+  getSourceEvents:    (id: number, days = 14) => call<SourceEvent[]>('GET', `/api/admin/sources/${id}/events?days=${days}`),
 
   // Rooms
   getRooms:      ()                     => call<Room[]>('GET',    '/api/admin/rooms'),

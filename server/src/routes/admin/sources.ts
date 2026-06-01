@@ -77,6 +77,19 @@ export async function registerSourcesRoutes(server: FastifyInstance) {
       .orderBy('created_at', 'asc')
       .execute();
 
+    const now14 = new Date();
+    const to14  = new Date(now14.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const eventCounts = await db
+      .selectFrom('bookings_cache')
+      .innerJoin('rooms', 'rooms.id', 'bookings_cache.room_id')
+      .select(['rooms.calendar_source_id'])
+      .select((eb) => eb.fn.countAll<number>().as('cnt'))
+      .where('bookings_cache.ends_at',   '>', now14.toISOString())
+      .where('bookings_cache.starts_at', '<', to14.toISOString())
+      .groupBy('rooms.calendar_source_id')
+      .execute();
+    const countBySource = new Map(eventCounts.map((r) => [r.calendar_source_id, Number(r.cnt)]));
+
     return reply.send(
       sources.map((s) => ({
         id: s.id,
@@ -88,6 +101,7 @@ export async function registerSourcesRoutes(server: FastifyInstance) {
         lastSyncError: s.last_sync_error,
         createdAt: s.created_at,
         credentials: maskCredentials(s.type, s.credentials_encrypted),
+        upcomingEventCount: countBySource.get(s.id) ?? 0,
       })),
     );
   });
@@ -170,6 +184,18 @@ export async function registerSourcesRoutes(server: FastifyInstance) {
         .where('calendar_source_id', '=', id)
         .execute();
 
+      // Count upcoming events across all rooms for this source
+      const nowDet = new Date();
+      const toDet  = new Date(nowDet.getTime() + 14 * 24 * 60 * 60 * 1000);
+      const [evCount] = await db
+        .selectFrom('bookings_cache')
+        .innerJoin('rooms', 'rooms.id', 'bookings_cache.room_id')
+        .select((eb) => eb.fn.countAll<number>().as('cnt'))
+        .where('rooms.calendar_source_id', '=', id)
+        .where('bookings_cache.ends_at',   '>', nowDet.toISOString())
+        .where('bookings_cache.starts_at', '<', toDet.toISOString())
+        .execute();
+
       return reply.send({
         id: source.id,
         type: source.type,
@@ -181,6 +207,7 @@ export async function registerSourcesRoutes(server: FastifyInstance) {
         createdAt: source.created_at,
         credentials: maskCredentials(source.type, source.credentials_encrypted),
         roomCount: roomCount?.count ?? 0,
+        upcomingEventCount: Number(evCount?.cnt ?? 0),
       });
     },
   );
@@ -367,6 +394,51 @@ export async function registerSourcesRoutes(server: FastifyInstance) {
           message: err instanceof Error ? err.message : String(err),
         });
       }
+    },
+  );
+
+  // ── GET /api/admin/sources/:id/events ─────────────────────────────────────
+  server.get<{ Params: { id: string }; Querystring: { days?: string } }>(
+    '/api/admin/sources/:id/events',
+    auth,
+    async (request, reply) => {
+      const id   = Number(request.params.id);
+      const days = Math.min(Number(request.query.days ?? 14), 60);
+
+      const source = await db
+        .selectFrom('calendar_sources')
+        .select('id')
+        .where('id', '=', id)
+        .executeTakeFirst();
+
+      if (!source) {
+        return reply.code(404).send({ error: 'not_found', message: 'Source not found' });
+      }
+
+      const now = new Date();
+      const to  = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+      const rows = await db
+        .selectFrom('bookings_cache')
+        .innerJoin('rooms', 'rooms.id', 'bookings_cache.room_id')
+        .select([
+          'bookings_cache.id as event_id',
+          'bookings_cache.source',
+          'bookings_cache.external_id',
+          'bookings_cache.title',
+          'bookings_cache.starts_at',
+          'bookings_cache.ends_at',
+          'rooms.id as room_id',
+          'rooms.display_name as room_name',
+          'rooms.slug as room_slug',
+        ])
+        .where('rooms.calendar_source_id', '=', id)
+        .where('bookings_cache.ends_at',   '>', now.toISOString())
+        .where('bookings_cache.starts_at', '<', to.toISOString())
+        .orderBy('bookings_cache.starts_at', 'asc')
+        .execute();
+
+      return reply.send(rows);
     },
   );
 }
