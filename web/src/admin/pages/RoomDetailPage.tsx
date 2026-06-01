@@ -105,6 +105,9 @@ export function RoomDetailPage() {
   const [editName,    setEditName]    = useState('');
   const [editingTz,   setEditingTz]   = useState(false);
   const [editTz,      setEditTz]      = useState('');
+  const [editingSlug, setEditingSlug] = useState(false);
+  const [editSlug,    setEditSlug]    = useState('');
+  const [slugError,   setSlugError]   = useState<string | null>(null);
   const [editError,   setEditError]   = useState<string | null>(null);
 
   const saveField = (patch: Record<string, unknown>) =>
@@ -128,6 +131,17 @@ export function RoomDetailPage() {
       setEditingTz(false);
     },
     onError: (err) => setEditError(err instanceof ApiError ? err.message : 'Save failed.'),
+  });
+
+  const slugMutation = useMutation({
+    mutationFn: () => saveField({ slug: editSlug }),
+    onSuccess:  () => {
+      void qc.invalidateQueries({ queryKey: ['room', roomId] });
+      void qc.invalidateQueries({ queryKey: ['rooms'] });
+      setEditingSlug(false);
+      setSlugError(null);
+    },
+    onError: (err) => setSlugError(err instanceof ApiError ? err.message : 'Save failed.'),
   });
 
   // ── Walk-up cancel ──────────────────────────────────────────────────────────
@@ -267,7 +281,13 @@ export function RoomDetailPage() {
             <div className="flex items-center justify-between px-4 py-3 text-sm">
               <span className="text-gray-500">Display URL</span>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-white">/display/{room.slug}</span>
+                <button
+                  onClick={() => { setEditSlug(room.slug); setSlugError(null); setEditingSlug(true); }}
+                  className="font-mono text-xs text-white hover:text-indigo-300 transition-colors"
+                  title="Click to edit slug"
+                >
+                  /display/{room.slug}
+                </button>
                 <a
                   href={`/display/${room.slug}`}
                   target="_blank"
@@ -499,6 +519,57 @@ export function RoomDetailPage() {
         </div>
 
       </div>
+
+      {/* Slug edit modal */}
+      {editingSlug && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-gray-700 bg-gray-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
+              <h2 className="font-semibold text-white">Edit Room Slug</h2>
+              <button onClick={() => setEditingSlug(false)} className="text-gray-500 hover:text-gray-300 text-lg leading-none">✕</button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(editSlug)) {
+                  setSlugError('Slug must be lowercase letters, numbers, and hyphens only (e.g. chapel-a).');
+                  return;
+                }
+                slugMutation.mutate();
+              }}
+              className="px-5 py-5 space-y-4"
+            >
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-300">Slug</label>
+                <div className="flex items-center rounded-lg border border-gray-700 bg-gray-800 px-3 focus-within:border-indigo-500 transition-colors">
+                  <span className="text-sm text-gray-500 select-none">/display/</span>
+                  <input
+                    autoFocus
+                    className="flex-1 bg-transparent py-2 text-sm text-white placeholder-gray-600 focus:outline-none font-mono"
+                    value={editSlug}
+                    onChange={(e) => { setEditSlug(e.target.value.toLowerCase()); setSlugError(null); }}
+                    placeholder="my-room"
+                    required
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-amber-400">
+                Changing the slug will break any tablets or bookmarks already using the old URL.
+              </p>
+              {slugError && (
+                <p className="rounded-lg border border-red-900 bg-red-950 px-3 py-2 text-sm text-red-400">{slugError}</p>
+              )}
+              <div className="flex justify-end gap-3 pt-1">
+                <button type="button" onClick={() => setEditingSlug(false)} className="btn-secondary">Cancel</button>
+                <button type="submit" disabled={slugMutation.isPending} className="btn-primary">
+                  {slugMutation.isPending ? 'Saving…' : 'Save Slug'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
