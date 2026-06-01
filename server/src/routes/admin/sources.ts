@@ -90,6 +90,14 @@ export async function registerSourcesRoutes(server: FastifyInstance) {
       .execute();
     const countBySource = new Map(eventCounts.map((r) => [r.calendar_source_id, Number(r.cnt)]));
 
+    const roomCounts = await db
+      .selectFrom('rooms')
+      .select(['calendar_source_id'])
+      .select((eb) => eb.fn.countAll<number>().as('cnt'))
+      .groupBy('calendar_source_id')
+      .execute();
+    const roomCountBySource = new Map(roomCounts.map((r) => [r.calendar_source_id, Number(r.cnt)]));
+
     return reply.send(
       sources.map((s) => ({
         id: s.id,
@@ -102,6 +110,7 @@ export async function registerSourcesRoutes(server: FastifyInstance) {
         createdAt: s.created_at,
         credentials: maskCredentials(s.type, s.credentials_encrypted),
         upcomingEventCount: countBySource.get(s.id) ?? 0,
+        roomCount: roomCountBySource.get(s.id) ?? 0,
       })),
     );
   });
