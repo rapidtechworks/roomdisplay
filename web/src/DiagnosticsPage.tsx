@@ -6,7 +6,7 @@
  * page is room-independent. A tech opens it on each tablet to confirm whether
  * the "wake on camera motion" screensaver feature can actually work there.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   probeCameraCapabilities,
@@ -43,6 +43,36 @@ export function DiagnosticsPage() {
   const [status, setStatus]   = useState<CameraMotionStatus | null>(null);
   const [motionCount, setMotionCount] = useState(0);
   const [flash, setFlash] = useState(false);
+
+  // WebSocket live-sync test (the thing that dies in standalone/home-screen mode)
+  type WsState = 'idle' | 'connecting' | 'open' | 'failed';
+  const [wsState, setWsState] = useState<WsState>('idle');
+  const wsRef = useRef<WebSocket | null>(null);
+
+  const wsUrl = typeof window !== 'undefined'
+    ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
+    : '';
+
+  const runWsTest = () => {
+    wsRef.current?.close();
+    setWsState('connecting');
+    try {
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      // If it doesn't open within 8s, treat as failed (standalone blocks often hang).
+      const timeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) { setWsState('failed'); ws.close(); }
+      }, 8_000);
+      ws.onopen  = () => { clearTimeout(timeout); setWsState('open'); };
+      ws.onerror = () => { clearTimeout(timeout); setWsState('failed'); };
+      ws.onclose = () => setWsState((s) => (s === 'open' ? 'open' : 'failed'));
+    } catch {
+      setWsState('failed');
+    }
+  };
+
+  // Close any open test socket on unmount.
+  useEffect(() => () => wsRef.current?.close(), []);
 
   const refresh = () => { void probeCameraCapabilities().then(setCaps); };
   useEffect(() => { refresh(); }, []);
@@ -160,6 +190,52 @@ export function DiagnosticsPage() {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Live-sync (WebSocket) test — the part that breaks in standalone/home-screen mode */}
+        <div className="mt-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-gray-400">
+            Live Sync (WebSocket)
+          </h2>
+          <p className="mb-1 text-sm text-gray-500">
+            The display's real-time updates and the admin “online” indicator both ride
+            on a WebSocket. Walk-up booking uses plain REST and can work even when this
+            doesn't — so test it here, especially from a home-screen / bookmarked launch.
+          </p>
+          <p className="mb-4 break-all font-mono text-xs text-gray-600">{wsUrl}</p>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={runWsTest}
+              disabled={wsState === 'connecting'}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+            >
+              {wsState === 'connecting' ? 'Connecting…' : 'Test live sync'}
+            </button>
+            {wsState !== 'idle' && (
+              <span className={`flex items-center gap-2 text-sm font-medium ${
+                wsState === 'open' ? 'text-emerald-300' :
+                wsState === 'failed' ? 'text-red-300' : 'text-gray-400'
+              }`}>
+                <span className={`h-2 w-2 rounded-full ${
+                  wsState === 'open' ? 'bg-emerald-500' :
+                  wsState === 'failed' ? 'bg-red-500' : 'bg-amber-400'
+                }`} />
+                {wsState === 'open'   && '✓ Connected — live sync works in this context'}
+                {wsState === 'failed' && '✗ Could not connect — live sync is blocked here'}
+                {wsState === 'connecting' && 'Connecting…'}
+              </span>
+            )}
+          </div>
+
+          {wsState === 'failed' && (
+            <p className="mt-3 rounded-lg border border-red-900 bg-red-950/30 px-3 py-2 text-xs text-red-300">
+              REST works but the WebSocket is blocked in this launch mode. This is the
+              usual home-screen / standalone-PWA limitation (especially on iOS with a
+              privately-issued certificate). Compare this result against a normal browser
+              tab — if the tab connects and the home-screen launch doesn't, that confirms it.
+            </p>
           )}
         </div>
 
