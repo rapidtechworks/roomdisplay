@@ -278,13 +278,11 @@ export interface ThemeEditorProps {
   /** When set, renders a two-column layout with an iframe preview on the right. */
   layout?:                'single' | 'three-panel';
   previewSlug?:           string;
-  previewRoomOptions?:    { slug: string; name: string }[];
-  onPreviewRoomChange?:   (slug: string) => void;
 }
 
 export function ThemeEditor({
   value, onChange, onUploadImage, uploadingImage, uploadingLogo, saving, onSave,
-  layout = 'single', previewSlug, previewRoomOptions, onPreviewRoomChange,
+  layout = 'single', previewSlug,
 }: ThemeEditorProps) {
   const fileRef     = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
@@ -592,43 +590,17 @@ export function ThemeEditor({
       <div className="grid grid-cols-2 h-full">
 
         {/* Left column — primary settings, independently scrollable */}
-        <div className="overflow-y-auto border-r border-gray-800">
+        {/* Left column — scrollbar hidden, content still scrollable */}
+        <div className="overflow-y-auto border-r border-gray-800 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="px-8 py-6">
             {presetsBlock}
             {backgroundBlock}
             {logoBlock}
           </div>
-          {/* Save button sticks to bottom of left column's scroll viewport */}
-          <div className="sticky bottom-0 flex justify-end border-t border-gray-800 bg-gray-950 px-8 py-4">
-            <button
-              type="button"
-              disabled={saving}
-              onClick={onSave}
-              className="btn-primary px-8 disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save changes'}
-            </button>
-          </div>
         </div>
 
         {/* Right column — preview (top) + advanced settings (bottom) */}
         <div className="flex flex-col h-full overflow-hidden">
-
-          {/* Room picker bar */}
-          {previewRoomOptions && previewRoomOptions.length > 0 && (
-            <div className="shrink-0 flex items-center gap-3 border-b border-gray-800 bg-gray-900 px-4 py-2.5">
-              <span className="text-xs text-gray-500 shrink-0">Preview room:</span>
-              <select
-                value={previewSlug ?? ''}
-                onChange={(e) => onPreviewRoomChange?.(e.target.value)}
-                className="input text-xs py-1 flex-1 max-w-[240px]"
-              >
-                {previewRoomOptions.map((r) => (
-                  <option key={r.slug} value={r.slug}>{r.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* Iframe — 16:9 aspect ratio, scales to column width */}
           <div
@@ -651,9 +623,7 @@ export function ThemeEditor({
               />
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-gray-600">
-                {previewRoomOptions?.length === 0
-                  ? 'No rooms yet — add a room to preview the theme.'
-                  : 'Select a room to preview'}
+                No rooms yet — add a room to preview the theme.
               </div>
             )}
           </div>

@@ -29,7 +29,6 @@ export function ThemePage() {
     if (data && !draft) setDraft(data.settings);
   }, [data, draft]);
 
-  // Default preview to the first room once rooms load
   useEffect(() => {
     if (rooms && rooms.length > 0 && !previewSlug) {
       setPreviewSlug(rooms[0]!.slug);
@@ -90,24 +89,33 @@ export function ThemePage() {
     );
   }
 
-  const roomOptions = rooms?.map((r) => ({ slug: r.slug, name: r.displayName })) ?? [];
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
 
       {/* Header */}
-      <div className="shrink-0 flex items-start justify-between border-b border-gray-800 px-8 py-5">
+      <div className="shrink-0 flex items-center justify-between border-b border-gray-800 px-8 py-5">
         <div>
           <h1 className="text-2xl font-semibold text-white">Global Theme</h1>
           <p className="mt-0.5 text-sm text-gray-500">
             Default appearance for all rooms. Individual rooms can override these settings.
           </p>
         </div>
-        {savedMsg && (
-          <span className="rounded-lg bg-emerald-900/40 px-3 py-1.5 text-sm text-emerald-400">
-            ✓ Saved
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {savedMsg && (
+            <span className="rounded-lg bg-emerald-900/40 px-3 py-1.5 text-sm text-emerald-400">
+              ✓ Saved
+            </span>
+          )}
+          <button
+            type="button"
+            disabled={saving || !draft}
+            onClick={handleSave}
+            className="btn-primary px-6 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -129,8 +137,6 @@ export function ThemePage() {
             onSave={handleSave}
             layout="three-panel"
             previewSlug={previewSlug}
-            previewRoomOptions={roomOptions}
-            onPreviewRoomChange={setPreviewSlug}
           />
         </div>
       )}
