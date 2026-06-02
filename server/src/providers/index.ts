@@ -1,5 +1,5 @@
 import { decryptJson } from '../crypto.js';
-import type { CalendarProvider, IcalCredentials } from './base.js';
+import type { CalendarProvider, IcalCredentials, PcoCredentials } from './base.js';
 import { IcalProvider } from './ical.js';
 import { PcoProvider } from './pco.js';
 import type { CalendarSource } from '../db/schema.js';
@@ -15,7 +15,8 @@ export function buildProvider(source: CalendarSource): CalendarProvider {
       return new IcalProvider(source.id, source.display_name, creds);
     }
     case 'pco': {
-      return new PcoProvider(source.id);
+      const creds = decryptJson<PcoCredentials>(source.credentials_encrypted);
+      return new PcoProvider(source.id, creds);
     }
     default: {
       const _exhaustive: never = source.type;

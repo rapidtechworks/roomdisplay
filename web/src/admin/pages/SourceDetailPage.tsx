@@ -56,16 +56,21 @@ export function SourceDetailPage() {
   // Credentials update
   const [showCredsModal, setShowCredsModal] = useState(false);
   const [newUrl,         setNewUrl]         = useState('');
+  const [newClientId,    setNewClientId]    = useState('');
+  const [newSecret,      setNewSecret]      = useState('');
   const [credsError,     setCredsError]     = useState<string | null>(null);
 
   const updateCreds = useMutation({
-    mutationFn: () => api.updateSource(sourceId, {
-      credentials: { url: newUrl, httpAuth: null },
-    }),
+    mutationFn: () => {
+      const credentials = source?.type === 'pco'
+        ? { authType: 'pat' as const, clientId: newClientId, secret: newSecret }
+        : { url: newUrl, httpAuth: null };
+      return api.updateSource(sourceId, { credentials });
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['source', sourceId] });
       setShowCredsModal(false);
-      setNewUrl('');
+      setNewUrl(''); setNewClientId(''); setNewSecret('');
       setCredsError(null);
     },
     onError: (err) => setCredsError(err instanceof ApiError ? err.message : 'Update failed.'),
@@ -207,11 +212,9 @@ export function SourceDetailPage() {
         >
           {syncMutation.isPending ? 'Syncing…' : 'Sync Now'}
         </button>
-        {source.type === 'ical' && (
-          <button onClick={() => setShowCredsModal(true)} className="btn-secondary">
-            Update URL
-          </button>
-        )}
+        <button onClick={() => setShowCredsModal(true)} className="btn-secondary">
+          Update Credentials
+        </button>
       </div>
 
       {testResult && (
@@ -385,16 +388,50 @@ export function SourceDetailPage() {
 
       {/* Update credentials modal */}
       {showCredsModal && (
-        <Modal title="Update iCal URL" onClose={() => { setShowCredsModal(false); setCredsError(null); }}>
+        <Modal
+          title={source.type === 'pco' ? 'Update PCO Credentials' : 'Update iCal URL'}
+          onClose={() => { setShowCredsModal(false); setCredsError(null); }}
+        >
           <form onSubmit={(e) => { e.preventDefault(); updateCreds.mutate(); }} className="space-y-4">
-            <Field label="New iCal URL">
-              <input className="input" type="url" required value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://…" />
-            </Field>
+            {source.type === 'pco' ? (
+              <>
+                <Field label="Application ID (Client ID)">
+                  <input
+                    className="input"
+                    required
+                    value={newClientId}
+                    onChange={(e) => setNewClientId(e.target.value)}
+                    placeholder="Leave blank to keep current"
+                  />
+                </Field>
+                <Field label="Secret">
+                  <input
+                    className="input"
+                    type="password"
+                    required
+                    value={newSecret}
+                    onChange={(e) => setNewSecret(e.target.value)}
+                    placeholder="New secret"
+                  />
+                </Field>
+              </>
+            ) : (
+              <Field label="New iCal URL">
+                <input
+                  className="input"
+                  type="url"
+                  required
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </Field>
+            )}
             {credsError && <ErrorBox message={credsError} />}
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setShowCredsModal(false)} className="btn-secondary">Cancel</button>
               <button type="submit" disabled={updateCreds.isPending} className="btn-primary">
-                {updateCreds.isPending ? 'Testing & saving…' : 'Update URL'}
+                {updateCreds.isPending ? 'Testing & saving…' : 'Update Credentials'}
               </button>
             </div>
           </form>
