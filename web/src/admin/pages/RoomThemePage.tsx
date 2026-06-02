@@ -10,7 +10,6 @@ export function RoomThemePage() {
   const roomId   = Number(id);
   const qc       = useQueryClient();
 
-  // Load the room itself (for its name) and its theme
   const { data: room } = useQuery({
     queryKey: ['room', roomId],
     queryFn:  () => api.getRoom(roomId),
@@ -31,7 +30,6 @@ export function RoomThemePage() {
   const [disabling,      setDisabling]      = useState(false);
   const [error,          setError]          = useState<string | null>(null);
 
-  // Initialise draft from server data
   useEffect(() => {
     if (themeData) setDraft(themeData.settings);
   }, [themeData]);
@@ -90,7 +88,7 @@ export function RoomThemePage() {
   };
 
   const handleDisable = async () => {
-    if (!confirm('Remove this room\'s custom theme and revert to the global theme?')) return;
+    if (!confirm('Remove this room\'s custom theme and revert to the inherited theme?')) return;
     setDisabling(true);
     setError(null);
     try {
@@ -104,64 +102,30 @@ export function RoomThemePage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="p-8">
-        <p className="text-gray-400">Loading theme…</p>
-      </div>
-    );
-  }
-
-  if (isError || !themeData) {
-    return (
-      <div className="p-8">
-        <p className="text-red-400">Failed to load room theme.</p>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="p-8"><p className="text-gray-400">Loading theme…</p></div>;
+  if (isError || !themeData) return <div className="p-8"><p className="text-red-400">Failed to load room theme.</p></div>;
 
   const roomName = room?.displayName ?? `Room ${roomId}`;
 
-  return (
-    <div className="max-w-3xl p-8">
-
-      {/* Back link */}
-      <Link
-        to={`/admin/rooms/${roomId}`}
-        className="mb-4 inline-block text-sm text-indigo-400 hover:text-indigo-300"
-      >
-        ← {roomName}
-      </Link>
-
-      {/* Header */}
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
+  // ── Using inherited theme — constrained layout with enable prompt ─────────────
+  if (themeData.usingGlobal) {
+    return (
+      <div className="max-w-3xl p-8">
+        <Link to={`/admin/rooms/${roomId}`} className="mb-4 inline-block text-sm text-indigo-400 hover:text-indigo-300">
+          ← {roomName}
+        </Link>
+        <div className="mb-6">
           <h1 className="text-2xl font-semibold text-white">{roomName} — Theme</h1>
-          {themeData.usingGlobal ? (
-            <p className="mt-0.5 text-sm text-gray-500">
-              Currently using the <Link to="/admin/theme" className="text-indigo-400 hover:underline">global theme</Link>.
-              Enable a custom theme to override it for this room only.
-            </p>
-          ) : (
-            <p className="mt-0.5 text-sm text-emerald-500">Custom theme active for this room.</p>
-          )}
+          <p className="mt-0.5 text-sm text-gray-500">
+            Currently using the{' '}
+            <Link to="/admin/theme" className="text-indigo-400 hover:underline">global theme</Link>.
+            Enable a custom theme to override it for this room only.
+          </p>
         </div>
-        {savedMsg && (
-          <span className="rounded-lg bg-emerald-900/40 px-3 py-1.5 text-sm text-emerald-400">
-            ✓ Saved
-          </span>
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-900 bg-red-950/20 px-4 py-3 text-sm text-red-400">{error}</div>
         )}
-      </div>
-
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-900 bg-red-950/20 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
-
-      {/* If using global — prompt to enable */}
-      {themeData.usingGlobal && (
-        <div className="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
           <p className="mb-3 text-sm text-gray-300">
             Enable a custom theme to give <strong className="text-white">{roomName}</strong> its own
             colours, fonts, and background — completely independent of the global theme.
@@ -174,11 +138,47 @@ export function RoomThemePage() {
             {enabling ? 'Enabling…' : 'Enable custom theme for this room'}
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // ── Custom theme active — full-height three-panel layout ──────────────────────
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between border-b border-gray-800 px-8 py-5">
+        <div>
+          <Link to={`/admin/rooms/${roomId}`} className="mb-1 block text-sm text-indigo-400 hover:text-indigo-300">
+            ← {roomName}
+          </Link>
+          <h1 className="text-2xl font-semibold text-white">{roomName} — Theme</h1>
+          <p className="mt-0.5 text-sm text-emerald-500">Custom theme active for this room.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {savedMsg && (
+            <span className="rounded-lg bg-emerald-900/40 px-3 py-1.5 text-sm text-emerald-400">✓ Saved</span>
+          )}
+          <button
+            type="button"
+            disabled={saving || !draft}
+            onClick={handleSave}
+            className="btn-primary px-6 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="shrink-0 mx-8 mt-4 rounded-lg border border-red-900 bg-red-950/20 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
       )}
 
-      {/* Theme editor — only shown when custom theme is active */}
-      {!themeData.usingGlobal && draft && (
-        <>
+      {/* Editor — fills remaining height */}
+      {draft && (
+        <div className="flex-1 min-h-0">
           <ThemeEditor
             value={draft}
             onChange={handleChange}
@@ -187,24 +187,11 @@ export function RoomThemePage() {
             uploadingLogo={uploadingLogo}
             saving={saving}
             onSave={handleSave}
+            layout="three-panel"
+            onDisable={handleDisable}
+            disabling={disabling}
           />
-
-          {/* Revert to global */}
-          <div className="mt-6 rounded-xl border border-red-900 bg-red-950/20 p-5">
-            <h3 className="mb-2 font-semibold text-red-400">Revert to global theme</h3>
-            <p className="mb-4 text-sm text-gray-400">
-              Removes this room's custom theme. The room will immediately inherit the global theme.
-              This cannot be undone, but you can enable a custom theme again at any time.
-            </p>
-            <button
-              onClick={handleDisable}
-              disabled={disabling}
-              className="rounded-lg border border-red-800 px-4 py-2 text-sm text-red-400 hover:bg-red-900/30 disabled:opacity-50"
-            >
-              {disabling ? 'Reverting…' : 'Remove custom theme'}
-            </button>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );

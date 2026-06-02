@@ -109,43 +109,25 @@ export function ThemeGroupThemePage() {
 
   const groupName = group?.name ?? `Group ${groupId}`;
 
-  return (
-    <div className="max-w-3xl p-8">
-      <Link
-        to={`/admin/groups/${groupId}`}
-        className="mb-4 inline-block text-sm text-indigo-400 hover:text-indigo-300"
-      >
-        ← {groupName}
-      </Link>
-
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
+  // ── Using global theme — constrained layout with enable prompt ────────────────
+  if (themeData.usingGlobal) {
+    return (
+      <div className="max-w-3xl p-8">
+        <Link to={`/admin/groups/${groupId}`} className="mb-4 inline-block text-sm text-indigo-400 hover:text-indigo-300">
+          ← {groupName}
+        </Link>
+        <div className="mb-6">
           <h1 className="text-2xl font-semibold text-white">{groupName} — Theme</h1>
-          {themeData.usingGlobal ? (
-            <p className="mt-0.5 text-sm text-gray-500">
-              Currently using the{' '}
-              <Link to="/admin/theme" className="text-indigo-400 hover:underline">global theme</Link>.
-              Enable a custom theme to override it for all rooms in this group.
-            </p>
-          ) : (
-            <p className="mt-0.5 text-sm text-emerald-500">Custom theme active for this group.</p>
-          )}
+          <p className="mt-0.5 text-sm text-gray-500">
+            Currently using the{' '}
+            <Link to="/admin/theme" className="text-indigo-400 hover:underline">global theme</Link>.
+            Enable a custom theme to override it for all rooms in this group.
+          </p>
         </div>
-        {savedMsg && (
-          <span className="rounded-lg bg-emerald-900/40 px-3 py-1.5 text-sm text-emerald-400">
-            ✓ Saved
-          </span>
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-900 bg-red-950/20 px-4 py-3 text-sm text-red-400">{error}</div>
         )}
-      </div>
-
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-900 bg-red-950/20 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
-
-      {themeData.usingGlobal && (
-        <div className="mb-6 rounded-xl border border-gray-800 bg-gray-900 p-5">
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
           <p className="mb-3 text-sm text-gray-300">
             Enable a custom theme to give all rooms in{' '}
             <strong className="text-white">{groupName}</strong> a shared look —
@@ -159,10 +141,47 @@ export function ThemeGroupThemePage() {
             {enabling ? 'Enabling…' : 'Enable custom theme for this group'}
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // ── Custom theme active — full-height three-panel layout ──────────────────────
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between border-b border-gray-800 px-8 py-5">
+        <div>
+          <Link to={`/admin/groups/${groupId}`} className="mb-1 block text-sm text-indigo-400 hover:text-indigo-300">
+            ← {groupName}
+          </Link>
+          <h1 className="text-2xl font-semibold text-white">{groupName} — Theme</h1>
+          <p className="mt-0.5 text-sm text-emerald-500">Custom theme active for this group.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {savedMsg && (
+            <span className="rounded-lg bg-emerald-900/40 px-3 py-1.5 text-sm text-emerald-400">✓ Saved</span>
+          )}
+          <button
+            type="button"
+            disabled={saving || !draft}
+            onClick={handleSave}
+            className="btn-primary px-6 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="shrink-0 mx-8 mt-4 rounded-lg border border-red-900 bg-red-950/20 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
       )}
 
-      {!themeData.usingGlobal && draft && (
-        <>
+      {/* Editor — fills remaining height */}
+      {draft && (
+        <div className="flex-1 min-h-0">
           <ThemeEditor
             value={draft}
             onChange={handleChange}
@@ -171,23 +190,11 @@ export function ThemeGroupThemePage() {
             uploadingLogo={uploadingLogo}
             saving={saving}
             onSave={handleSave}
+            layout="three-panel"
+            onDisable={handleDisable}
+            disabling={disabling}
           />
-
-          <div className="mt-6 rounded-xl border border-red-900 bg-red-950/20 p-5">
-            <h3 className="mb-2 font-semibold text-red-400">Revert to global theme</h3>
-            <p className="mb-4 text-sm text-gray-400">
-              Removes this group's custom theme. All rooms in the group will inherit the global
-              theme (unless they have their own override).
-            </p>
-            <button
-              onClick={handleDisable}
-              disabled={disabling}
-              className="rounded-lg border border-red-800 px-4 py-2 text-sm text-red-400 hover:bg-red-900/30 disabled:opacity-50 transition-colors"
-            >
-              {disabling ? 'Reverting…' : 'Remove custom theme'}
-            </button>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );

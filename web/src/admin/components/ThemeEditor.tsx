@@ -278,11 +278,14 @@ export interface ThemeEditorProps {
   onSave:           () => void;
   /** When set, renders a two-column layout with a live theme preview on the right. */
   layout?: 'single' | 'three-panel';
+  /** When provided (three-panel only), shows a "Remove custom theme" link at the bottom of the left column. */
+  onDisable?:  () => void;
+  disabling?:  boolean;
 }
 
 export function ThemeEditor({
   value, onChange, onUploadImage, uploadingImage, uploadingLogo, saving, onSave,
-  layout = 'single',
+  layout = 'single', onDisable, disabling = false,
 }: ThemeEditorProps) {
   const fileRef     = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
@@ -606,12 +609,23 @@ export function ThemeEditor({
       <div className="grid grid-cols-2 h-full">
 
         {/* Left column — primary settings, independently scrollable */}
-        {/* Left column — scrollbar hidden, content still scrollable */}
         <div className="overflow-y-auto border-r border-gray-800 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="px-8 py-6">
             {presetsBlock}
             {backgroundBlock}
             {logoBlock}
+            {onDisable && (
+              <div className="mt-2 border-t border-gray-800 pt-6 pb-2">
+                <button
+                  type="button"
+                  onClick={onDisable}
+                  disabled={disabling}
+                  className="text-xs text-red-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+                >
+                  {disabling ? 'Reverting…' : 'Remove custom theme…'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
