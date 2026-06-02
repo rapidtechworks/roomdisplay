@@ -9,7 +9,7 @@ const NAV = [
   { to: '/admin/rooms',    label: 'Rooms',     exact: false },
   { to: '/admin/groups',   label: 'Groups',    exact: false },
   { to: '/admin/tablets',  label: 'Devices',   exact: false },
-  { to: '/admin/theme',    label: 'Theme',     exact: false },
+  { to: '/admin/themes',   label: 'Themes',    exact: false },
 ];
 
 const UPDATE_CHECK_INTERVAL_MS = 90 * 1000;

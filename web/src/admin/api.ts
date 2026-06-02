@@ -203,6 +203,49 @@ export interface RoomThemeResponse {
   settings:    Theme;
 }
 
+export interface NamedTheme {
+  id:              number;
+  name:            string;
+  settings:        Theme;
+  usedByRooms:     number;
+  usedByGroups:    number;
+  usedBySchedules: number;
+  createdAt:       string;
+  updatedAt:       string;
+}
+
+export interface ThemeSchedule {
+  id:             number;
+  name:           string;
+  themeId:        number;
+  themeName:      string;
+  scopeType:      'global' | 'group' | 'room';
+  scopeId:        number | null;
+  scopeName:      string;
+  recurrenceType: 'weekly' | 'one_time';
+  dayOfWeek:      number | null;
+  date:           string | null;
+  startTime:      string;
+  endTime:        string | null;
+  timeZone:       string;
+  enabled:        boolean;
+  createdAt:      string;
+}
+
+export interface CreateScheduleData {
+  name:           string;
+  themeId:        number;
+  scopeType:      'global' | 'group' | 'room';
+  scopeId?:       number | null;
+  recurrenceType: 'weekly' | 'one_time';
+  dayOfWeek?:     number | null;
+  date?:          string | null;
+  startTime:      string;
+  endTime?:       string | null;
+  timeZone:       string;
+  enabled?:       boolean;
+}
+
 export type { Theme };
 
 export interface SyncResult {
@@ -247,7 +290,7 @@ export const api = {
   getThemeGroups:       ()                => call<ThemeGroup[]>('GET',    '/api/admin/theme-groups'),
   getThemeGroup:        (id: number)      => call<ThemeGroupDetail>('GET', `/api/admin/theme-groups/${id}`),
   createThemeGroup:     (name: string)    => call<{ id: number; name: string }>('POST', '/api/admin/theme-groups', { name }),
-  updateThemeGroup:     (id: number, data: { name?: string }) => call<{ ok: boolean }>('PATCH', `/api/admin/theme-groups/${id}`, data),
+  updateThemeGroup:     (id: number, data: { name?: string; themeId?: number | null }) => call<{ ok: boolean }>('PATCH', `/api/admin/theme-groups/${id}`, data),
   deleteThemeGroup:     (id: number)      => call<{ ok: boolean }>('DELETE', `/api/admin/theme-groups/${id}`),
   getThemeGroupTheme:   (id: number)      => call<RoomThemeResponse>('GET',    `/api/admin/theme-groups/${id}/theme`),
   enableThemeGroupTheme:(id: number)      => call<{ themeId: number; settings: Theme }>('POST', `/api/admin/theme-groups/${id}/theme`),
@@ -261,6 +304,19 @@ export const api = {
   enableRoomTheme:   (roomId: number)                    => call<{ themeId: number; settings: Theme }>('POST',   `/api/admin/rooms/${roomId}/theme`),
   updateRoomTheme:   (roomId: number, data: Partial<Theme>) => call<{ ok: boolean }>('PATCH',  `/api/admin/rooms/${roomId}/theme`, data),
   disableRoomTheme:  (roomId: number)                    => call<{ ok: boolean }>('DELETE', `/api/admin/rooms/${roomId}/theme`),
+
+  // Named Themes
+  getNamedThemes:    ()                                          => call<NamedTheme[]>('GET',    '/api/admin/named-themes'),
+  getNamedTheme:     (id: number)                               => call<NamedTheme>('GET',    `/api/admin/named-themes/${id}`),
+  createNamedTheme:  (name: string)                             => call<NamedTheme>('POST',   '/api/admin/named-themes', { name }),
+  updateNamedTheme:  (id: number, data: { name?: string } & Partial<Theme>) => call<{ ok: boolean }>('PATCH', `/api/admin/named-themes/${id}`, data),
+  deleteNamedTheme:  (id: number)                               => call<{ ok: boolean }>('DELETE', `/api/admin/named-themes/${id}`),
+
+  // Theme Schedules
+  getThemeSchedules:    ()                                 => call<ThemeSchedule[]>('GET',    '/api/admin/theme-schedules'),
+  createThemeSchedule:  (data: CreateScheduleData)         => call<{ id: number }>('POST',   '/api/admin/theme-schedules', data),
+  updateThemeSchedule:  (id: number, data: Partial<CreateScheduleData>) => call<{ ok: boolean }>('PATCH', `/api/admin/theme-schedules/${id}`, data),
+  deleteThemeSchedule:  (id: number)                       => call<{ ok: boolean }>('DELETE', `/api/admin/theme-schedules/${id}`),
 
   // Image upload (multipart — handled separately, not via call())
   uploadImage: async (file: File): Promise<{ path: string }> => {

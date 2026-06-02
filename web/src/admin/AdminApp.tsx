@@ -12,6 +12,8 @@ import { RoomsPage } from './pages/RoomsPage.tsx';
 import { RoomDetailPage } from './pages/RoomDetailPage.tsx';
 import { TabletsPage } from './pages/TabletsPage.tsx';
 import { ThemePage } from './pages/ThemePage.tsx';
+import { ThemesPage } from './pages/ThemesPage.tsx';
+import { NamedThemeEditPage } from './pages/NamedThemeEditPage.tsx';
 import { RoomThemePage } from './pages/RoomThemePage.tsx';
 import { ThemeGroupsPage } from './pages/ThemeGroupsPage.tsx';
 import { ThemeGroupDetailPage } from './pages/ThemeGroupDetailPage.tsx';
@@ -73,6 +75,11 @@ function AdminRoutes() {
         <Route path="groups/:id" element={<ThemeGroupDetailPage />} />
         <Route path="groups/:id/theme" element={<ThemeGroupThemePage />} />
         <Route path="tablets" element={<TabletsPage />} />
+        {/* Themes — new library-based flow */}
+        <Route path="themes" element={<ThemesPage />} />
+        <Route path="themes/global" element={<ThemePage />} />
+        <Route path="themes/:id" element={<NamedThemeEditPage />} />
+        {/* Legacy /admin/theme redirect */}
         <Route path="theme" element={<ThemePage />} />
         <Route path="system" element={<SystemPage />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />

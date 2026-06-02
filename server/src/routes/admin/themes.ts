@@ -146,54 +146,51 @@ export async function registerThemesRoutes(server: FastifyInstance) {
     },
   );
 
-  // ── POST /api/admin/rooms/:id/theme — enable per-room override ─────────────
+  // ── POST /api/admin/rooms/:id/theme — assign a named theme as room override ──
+  // Body: { themeId: number } — must reference a named theme in the library.
   server.post<{ Params: { id: string } }>(
     '/api/admin/rooms/:id/theme',
     authCsrf,
     async (request, reply) => {
       const roomId = Number(request.params.id);
-      const room   = await db
+      const body   = request.body as { themeId?: number };
+
+      const room = await db
         .selectFrom('rooms')
-        .select(['id', 'slug', 'theme_override_id'])
+        .select(['id', 'slug'])
         .where('id', '=', roomId)
         .executeTakeFirst();
 
       if (!room) {
         return reply.code(404).send({ error: 'not_found', message: 'Room not found' });
       }
-      if (room.theme_override_id !== null) {
-        return reply.code(409).send({
-          error:   'already_customised',
-          message: 'Room already has a custom theme. PATCH to update it.',
-        });
+
+      if (!body.themeId) {
+        return reply.code(400).send({ error: 'validation_error', message: 'themeId is required' });
       }
 
-      // Start with a copy of the current global theme so the room looks the same
-      // initially — the admin can then diverge from there.
-      const global   = await readGlobalTheme();
-      const now      = new Date().toISOString();
-      const newTheme = await db
-        .insertInto('themes')
-        .values({
-          name:          `Room ${roomId} override`,
-          is_global:     0,
-          settings_json: JSON.stringify(global.settings),
-          created_at:    now,
-          updated_at:    now,
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow();
+      const namedTheme = await db
+        .selectFrom('themes')
+        .select(['id', 'settings_json'])
+        .where('id', '=', body.themeId)
+        .where('is_named', '=', 1)
+        .executeTakeFirst();
+
+      if (!namedTheme) {
+        return reply.code(400).send({ error: 'invalid_theme', message: 'Theme not found in library' });
+      }
 
       await db
         .updateTable('rooms')
-        .set({ theme_override_id: newTheme.id, theme_tier: 'room' })
+        .set({ theme_override_id: namedTheme.id, theme_tier: 'room' })
         .where('id', '=', roomId)
         .execute();
 
-      server.log.info({ roomId, themeId: newTheme.id }, 'Per-room theme override created');
+      server.log.info({ roomId, themeId: namedTheme.id }, 'Per-room theme override assigned');
       pushRoomState(room.slug).catch(() => { /* non-critical */ });
 
-      return reply.code(201).send({ themeId: newTheme.id, settings: global.settings });
+      const settings: Theme = { ...DEFAULT_THEME, ...(JSON.parse(namedTheme.settings_json) as Partial<Theme>) };
+      return reply.code(201).send({ themeId: namedTheme.id, settings });
     },
   );
 
@@ -247,7 +244,8 @@ export async function registerThemesRoutes(server: FastifyInstance) {
     },
   );
 
-  // ── DELETE /api/admin/rooms/:id/theme — revert to global ──────────────────
+  // ── DELETE /api/admin/rooms/:id/theme — unlink room override ────────────
+  // Unlinks the named theme from the room; the theme itself stays in the library.
   server.delete<{ Params: { id: string } }>(
     '/api/admin/rooms/:id/theme',
     authCsrf,
@@ -269,19 +267,13 @@ export async function registerThemesRoutes(server: FastifyInstance) {
         });
       }
 
-      const themeId = room.theme_override_id;
-
-      // Unlink first, then delete the orphaned theme row.
-      // theme_tier reverts to 'global'; group assignment is intentionally kept.
       await db
         .updateTable('rooms')
         .set({ theme_override_id: null, theme_tier: 'global' })
         .where('id', '=', roomId)
         .execute();
 
-      await db.deleteFrom('themes').where('id', '=', themeId).execute();
-
-      server.log.info({ roomId, themeId }, 'Per-room theme override removed');
+      server.log.info({ roomId }, 'Per-room theme override unlinked');
       pushRoomState(room.slug).catch(() => { /* non-critical */ });
 
       return reply.send({ ok: true });

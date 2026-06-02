@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type WalkUp, type RoomEvent, type Tablet } from '../api.ts';
 
+
 // ─── Preview constants ────────────────────────────────────────────────────────
 const IFRAME_W = 1280;
 const IFRAME_H = 720;
@@ -36,6 +37,11 @@ export function RoomDetailPage() {
     queryFn:  () => api.getThemeGroups(),
   });
 
+  const { data: namedThemes } = useQuery({
+    queryKey: ['named-themes'],
+    queryFn:  () => api.getNamedThemes(),
+  });
+
   const { data: tablets } = useQuery({
     queryKey:        ['tablets'],
     queryFn:         () => api.getTablets(),
@@ -65,20 +71,24 @@ export function RoomDetailPage() {
 
   // ── Theme tier mutations ────────────────────────────────────────────────────
   const setTier = useMutation({
-    mutationFn: async (tier: 'room' | 'group' | 'global') => {
+    mutationFn: async (tier: 'global' | 'group') => {
       if (!room) return;
-      if (tier === 'room') {
-        // Enable override if not already present (POST creates the theme row).
-        if (room.themeOverrideId === null) await api.enableRoomTheme(roomId);
-        // If override already exists, just update the tier field.
-        else await api.updateRoom(roomId, { themeTier: 'room' });
+      await api.updateRoom(roomId, { themeTier: tier, themeOverrideId: null });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['room',  roomId] });
+      void qc.invalidateQueries({ queryKey: ['rooms'] });
+    },
+  });
+
+  // Assign a named theme to this room (enables room-override tier).
+  const assignRoomTheme = useMutation({
+    mutationFn: async (themeId: number | null) => {
+      if (!room) return;
+      if (themeId === null) {
+        await api.updateRoom(roomId, { themeTier: 'global', themeOverrideId: null });
       } else {
-        // Switching away from room: remove override if present, set new tier.
-        // Group assignment (themeGroupId) is intentionally NOT cleared.
-        if (room.themeOverrideId !== null) await api.disableRoomTheme(roomId);
-        // disableRoomTheme already sets tier='global' on the server, so only
-        // send the explicit tier update when no override existed.
-        else await api.updateRoom(roomId, { themeTier: tier });
+        await api.updateRoom(roomId, { themeTier: 'room', themeOverrideId: themeId });
       }
     },
     onSuccess: () => {
@@ -87,12 +97,11 @@ export function RoomDetailPage() {
     },
   });
 
-  // Picking a group always switches to Group tier (removes any room override).
+  // Picking a group always switches to Group tier.
   const assignGroup = useMutation({
     mutationFn: async (gid: number | null) => {
       if (!room) return;
-      if (room.themeOverrideId !== null) await api.disableRoomTheme(roomId);
-      await api.updateRoom(roomId, { themeGroupId: gid, themeTier: gid !== null ? 'group' : 'global' });
+      await api.updateRoom(roomId, { themeGroupId: gid, themeTier: gid !== null ? 'group' : 'global', themeOverrideId: null });
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['room',  roomId] });
@@ -183,11 +192,10 @@ export function RoomDetailPage() {
   // Tier comes directly from the server — no inference needed.
   const activeTier = room.themeTier;
 
-  const tierBusy = setTier.isPending || assignGroup.isPending;
+  const tierBusy = setTier.isPending || assignGroup.isPending || assignRoomTheme.isPending;
 
-  function handleTierClick(tier: 'room' | 'group' | 'global') {
+  function handleTierClick(tier: 'group' | 'global') {
     if (!room || tier === activeTier || tierBusy) return;
-    // Can't switch to Group tier without a group assigned; use the dropdown.
     if (tier === 'group' && room.themeGroupId === null) return;
     setTier.mutate(tier);
   }
@@ -310,23 +318,58 @@ export function RoomDetailPage() {
             </h2>
             <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
 
-              {/* Room Override */}
+              {/* Room Override — pick a named theme from the library */}
               <TierRow
                 active={activeTier === 'room'}
                 busy={tierBusy}
                 label="Room Override"
-                onClick={() => handleTierClick('room')}
+                onClick={() => {
+                  if (!room || activeTier === 'room' || tierBusy) return;
+                  // Select first named theme automatically if one exists, otherwise just switch tier
+                  const firstTheme = namedThemes?.[0];
+                  if (firstTheme) assignRoomTheme.mutate(firstTheme.id);
+                }}
               >
-                <Link
-                  to={`/admin/rooms/${roomId}/theme`}
-                  className={`btn-primary text-xs shrink-0 ${activeTier === 'room' ? '' : 'invisible pointer-events-none'}`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Edit Theme →
-                </Link>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {activeTier === 'room' && (
+                    <div className="relative">
+                      <select
+                        className="appearance-none h-9 rounded-lg border border-gray-700 bg-transparent pl-3 pr-8 text-sm font-medium text-gray-300 transition-colors hover:border-gray-600 hover:text-white focus:outline-none disabled:opacity-50 cursor-pointer"
+                        value={room.themeOverrideId ?? ''}
+                        disabled={tierBusy}
+                        onChange={(e) => {
+                          const tid = e.target.value ? Number(e.target.value) : null;
+                          assignRoomTheme.mutate(tid);
+                        }}
+                      >
+                        <option value="">{namedThemes?.length ? 'Select theme…' : 'No themes yet'}</option>
+                        {namedThemes?.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                      <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  )}
+                  {activeTier === 'room' && room.themeOverrideId && (
+                    <Link
+                      to={`/admin/themes/${room.themeOverrideId}`}
+                      className="btn-secondary text-xs shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Edit →
+                    </Link>
+                  )}
+                  {activeTier !== 'room' && namedThemes?.length === 0 && (
+                    <Link to="/admin/themes" className="text-xs text-indigo-400 hover:text-indigo-300 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      Add themes →
+                    </Link>
+                  )}
+                </div>
               </TierRow>
 
-              {/* Group Theme — dropdown anchored right, Go to Group appears to its left when active */}
+              {/* Group Theme */}
               <TierRow
                 active={activeTier === 'group'}
                 busy={tierBusy}
@@ -372,11 +415,11 @@ export function RoomDetailPage() {
                 onClick={() => handleTierClick('global')}
               >
                 <Link
-                  to="/admin/theme"
+                  to="/admin/themes"
                   className={`btn-secondary text-xs shrink-0 ${activeTier === 'global' ? '' : 'invisible pointer-events-none'}`}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  Go to Theme →
+                  Manage Themes →
                 </Link>
               </TierRow>
 

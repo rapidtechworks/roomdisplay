@@ -10,11 +10,53 @@
  */
 import { db } from '../db/index.js';
 import { syncSource } from './syncSource.js';
+import { pushRoomState } from './wsManager.js';
 import type { FastifyBaseLogger } from 'fastify';
 
 const TICK_MS = 30_000; // check every 30 seconds
 
 let timer: ReturnType<typeof setInterval> | null = null;
+
+/** Push room state for any room that has at least one enabled schedule (re-evaluates themes). */
+async function pushScheduledRooms(log: FastifyBaseLogger): Promise<void> {
+  const schedules = await db
+    .selectFrom('theme_schedules')
+    .select(['scope_type', 'scope_id'])
+    .where('enabled', '=', 1)
+    .execute();
+
+  if (schedules.length === 0) return;
+
+  const slugSet = new Set<string>();
+
+  for (const sched of schedules) {
+    if (sched.scope_type === 'global') {
+      const rooms = await db.selectFrom('rooms').select('slug').execute();
+      rooms.forEach((r) => slugSet.add(r.slug));
+      break; // global covers everything — no need to continue
+    } else if (sched.scope_type === 'group' && sched.scope_id !== null) {
+      const rooms = await db
+        .selectFrom('rooms')
+        .select('slug')
+        .where('theme_group_id', '=', sched.scope_id)
+        .execute();
+      rooms.forEach((r) => slugSet.add(r.slug));
+    } else if (sched.scope_type === 'room' && sched.scope_id !== null) {
+      const room = await db
+        .selectFrom('rooms')
+        .select('slug')
+        .where('id', '=', sched.scope_id)
+        .executeTakeFirst();
+      if (room) slugSet.add(room.slug);
+    }
+  }
+
+  for (const slug of slugSet) {
+    pushRoomState(slug).catch((err: unknown) =>
+      log.warn({ err, slug }, 'Scheduler: scheduled theme push failed'),
+    );
+  }
+}
 
 async function tick(log: FastifyBaseLogger): Promise<void> {
   const sources = await db
@@ -55,6 +97,11 @@ async function tick(log: FastifyBaseLogger): Promise<void> {
         log.warn({ err, sourceId: source.id, sourceName: source.display_name }, 'Scheduler: sync threw unexpectedly');
       });
   }
+
+  // Re-push rooms that have active schedules so theme transitions take effect within one tick.
+  pushScheduledRooms(log).catch((err: unknown) =>
+    log.warn({ err }, 'Scheduler: scheduled theme push failed'),
+  );
 }
 
 export function startScheduler(log: FastifyBaseLogger): void {

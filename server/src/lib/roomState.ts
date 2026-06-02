@@ -8,7 +8,7 @@ import type { Theme, CachedEvent, RoomState } from '../../../shared/src/index.js
 
 const AGENDA_DAYS = 7;
 
-// ─── Theme loader ─────────────────────────────────────────────────────────────
+// ─── Theme helpers ────────────────────────────────────────────────────────────
 
 /** Parse a settings_json string, merging with DEFAULT_THEME so any missing fields are filled. */
 function parseTheme(json: string): Theme {
@@ -19,11 +19,119 @@ function parseTheme(json: string): Theme {
   }
 }
 
-// Resolution order: room override → group theme → global theme → DEFAULT_THEME
+// ─── Schedule helpers ─────────────────────────────────────────────────────────
+
+interface ScheduleRow {
+  settings_json: string;
+  recurrence_type: 'weekly' | 'one_time';
+  day_of_week: number | null;
+  date: string | null;
+  start_time: string;
+  end_time: string | null;
+  time_zone: string;
+}
+
+/** Check whether a schedule is currently active given wall-clock time in its timezone. */
+function isScheduleActive(sched: ScheduleRow): boolean {
+  const now = new Date();
+
+  // Get local time parts in the schedule's timezone using Intl
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone:  sched.time_zone,
+    year:      'numeric',
+    month:     '2-digit',
+    day:       '2-digit',
+    hour:      '2-digit',
+    minute:    '2-digit',
+    hour12:    false,
+    weekday:   'short',
+  });
+
+  const parts    = fmt.formatToParts(now);
+  const get      = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+
+  const localDate    = `${get('year')}-${get('month')}-${get('day')}`;
+  const localHour    = parseInt(get('hour'), 10);
+  const localMinute  = parseInt(get('minute'), 10);
+  const localMinutes = localHour * 60 + (isNaN(localMinute) ? 0 : localMinute);
+
+  const dowMap: Record<string, number> = {
+    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+  };
+  const localDow = dowMap[get('weekday')] ?? -1;
+
+  const startParts = sched.start_time.split(':').map(Number);
+  const startMins  = (startParts[0] ?? 0) * 60 + (startParts[1] ?? 0);
+  const endMins    = sched.end_time
+    ? (() => { const p = sched.end_time!.split(':').map(Number); return (p[0] ?? 0) * 60 + (p[1] ?? 0); })()
+    : 24 * 60;
+
+  if (sched.recurrence_type === 'weekly') {
+    if (sched.day_of_week === null) return false;
+    if (localDow !== sched.day_of_week) return false;
+    return localMinutes >= startMins && localMinutes < endMins;
+  }
+
+  // one_time
+  if (!sched.date) return false;
+  if (localDate !== sched.date) return false;
+  return localMinutes >= startMins && localMinutes < endMins;
+}
+
+/** Return the first active schedule theme for the given scope, or null. */
+async function getActiveScheduledTheme(
+  scopeType: 'global' | 'group' | 'room',
+  scopeId: number | null,
+): Promise<Theme | null> {
+  let query = db
+    .selectFrom('theme_schedules as s')
+    .innerJoin('themes as t', 't.id', 's.theme_id')
+    .select([
+      't.settings_json',
+      's.recurrence_type', 's.day_of_week', 's.date',
+      's.start_time', 's.end_time', 's.time_zone',
+    ])
+    .where('s.scope_type', '=', scopeType)
+    .where('s.enabled', '=', 1);
+
+  if (scopeId === null) {
+    query = query.where('s.scope_id', 'is', null);
+  } else {
+    query = query.where('s.scope_id', '=', scopeId);
+  }
+
+  const schedules = await query.execute();
+
+  for (const sched of schedules) {
+    if (isScheduleActive(sched as ScheduleRow)) {
+      return parseTheme(sched.settings_json);
+    }
+  }
+  return null;
+}
+
+// ─── Theme resolution ─────────────────────────────────────────────────────────
+
+// Resolution order: active schedule (room → group → global) → room override → group theme → global theme → DEFAULT_THEME
 export async function loadTheme(
   themeOverrideId: number | null,
   themeGroupId: number | null = null,
+  roomId: number | null = null,
 ): Promise<Theme> {
+  // 0. Schedule-based overrides (highest priority)
+  if (roomId !== null) {
+    const roomSched = await getActiveScheduledTheme('room', roomId);
+    if (roomSched) return roomSched;
+  }
+
+  if (themeGroupId !== null) {
+    const groupSched = await getActiveScheduledTheme('group', themeGroupId);
+    if (groupSched) return groupSched;
+  }
+
+  const globalSched = await getActiveScheduledTheme('global', null);
+  if (globalSched) return globalSched;
+
   // 1. Room-level override
   if (themeOverrideId !== null) {
     const row = await db
@@ -98,6 +206,7 @@ export async function buildRoomState(slug: string): Promise<RoomState | null> {
   const theme = await loadTheme(
     room.theme_tier === 'room'  ? room.theme_override_id : null,
     room.theme_tier === 'group' ? room.theme_group_id    : null,
+    room.id,
   );
 
   return {

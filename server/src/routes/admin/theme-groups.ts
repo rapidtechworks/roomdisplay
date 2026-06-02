@@ -4,13 +4,15 @@ import { db } from '../../db/index.js';
 import { requireAdmin } from '../../hooks/requireAdmin.js';
 import { DEFAULT_THEME } from '../../../../shared/src/index.js';
 import type { Theme } from '../../../../shared/src/index.js';
+import { pushRoomState } from '../../lib/wsManager.js';
 
 const createGroupSchema = z.object({
   name: z.string().min(1).max(100),
 });
 
 const updateGroupSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
+  name:    z.string().min(1).max(100).optional(),
+  themeId: z.number().int().positive().nullable().optional(),
 });
 
 export async function registerThemeGroupsRoutes(server: FastifyInstance) {
@@ -123,8 +125,25 @@ export async function registerThemeGroupsRoutes(server: FastifyInstance) {
         return reply.code(400).send({ error: 'validation_error', message: 'Invalid request body' });
       }
 
-      if (parsed.data.name !== undefined) {
-        await db.updateTable('theme_groups').set({ name: parsed.data.name }).where('id', '=', id).execute();
+      const updates: Record<string, unknown> = {};
+      if (parsed.data.name    !== undefined) updates['name']     = parsed.data.name;
+      if (parsed.data.themeId !== undefined) updates['theme_id'] = parsed.data.themeId;
+
+      if (Object.keys(updates).length > 0) {
+        await db.updateTable('theme_groups').set(updates).where('id', '=', id).execute();
+      }
+
+      // Push rooms in this group if the theme changed
+      if (parsed.data.themeId !== undefined) {
+        const rooms = await db
+          .selectFrom('rooms')
+          .select('slug')
+          .where('theme_group_id', '=', id)
+          .where('theme_tier', '=', 'group')
+          .execute();
+        for (const r of rooms) {
+          pushRoomState(r.slug).catch(() => { /* non-critical */ });
+        }
       }
 
       return reply.send({ ok: true });
@@ -149,11 +168,7 @@ export async function registerThemeGroupsRoutes(server: FastifyInstance) {
       }
 
       await db.deleteFrom('theme_groups').where('id', '=', id).execute();
-
-      // Clean up the associated theme row if one existed
-      if (group.theme_id !== null) {
-        await db.deleteFrom('themes').where('id', '=', group.theme_id).execute();
-      }
+      // The referenced named theme stays in the library and can be reused elsewhere.
 
       server.log.info({ groupId: id }, 'Theme group deleted');
       return reply.send({ ok: true });
@@ -245,7 +260,7 @@ export async function registerThemeGroupsRoutes(server: FastifyInstance) {
 
       const newTheme = await db
         .insertInto('themes')
-        .values({ name: group.name, is_global: 0, settings_json: baseSettings, created_at: now, updated_at: now })
+        .values({ name: group.name, is_global: 0, is_named: 1, settings_json: baseSettings, created_at: now, updated_at: now })
         .returning(['id', 'settings_json'])
         .executeTakeFirstOrThrow();
 
@@ -309,7 +324,7 @@ export async function registerThemeGroupsRoutes(server: FastifyInstance) {
 
       if (group.theme_id !== null) {
         await db.updateTable('theme_groups').set({ theme_id: null }).where('id', '=', id).execute();
-        await db.deleteFrom('themes').where('id', '=', group.theme_id).execute();
+        // Named theme stays in the library; only the group's reference is removed.
       }
 
       return reply.send({ ok: true });

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { api, ApiError } from '../api.ts';
 
+
 export function ThemeGroupDetailPage() {
   const { id }    = useParams<{ id: string }>();
   const groupId   = Number(id);
@@ -14,7 +15,8 @@ export function ThemeGroupDetailPage() {
     queryFn:  () => api.getThemeGroup(groupId),
     enabled:  !!groupId,
   });
-  const allRooms = useQuery({ queryKey: ['rooms'], queryFn: () => api.getRooms() });
+  const allRooms    = useQuery({ queryKey: ['rooms'],        queryFn: () => api.getRooms() });
+  const namedThemes = useQuery({ queryKey: ['named-themes'], queryFn: () => api.getNamedThemes() });
 
   const [renaming,  setRenaming]  = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -140,25 +142,53 @@ export function ThemeGroupDetailPage() {
 
       {/* Theme */}
       <section className="mb-8 rounded-xl border border-gray-800 bg-gray-900 p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-white">Theme</h2>
-            {g.usingGlobal ? (
-              <p className="mt-0.5 text-sm text-gray-500">
-                Using the <Link to="/admin/theme" className="text-indigo-400 hover:underline">global theme</Link>.
-                Customize to give this group its own look.
-              </p>
-            ) : (
-              <p className="mt-0.5 text-sm text-emerald-500">Custom theme active for this group.</p>
-            )}
+        <h2 className="mb-3 text-sm font-semibold text-white">Theme</h2>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-xs">
+            <select
+              className="appearance-none w-full h-9 rounded-lg border border-gray-700 bg-gray-800 pl-3 pr-8 text-sm text-gray-300 transition-colors hover:border-gray-600 hover:text-white focus:outline-none disabled:opacity-50 cursor-pointer"
+              value={g.themeId ?? ''}
+              disabled={namedThemes.isLoading}
+              onChange={(e) => {
+                const tid = e.target.value ? Number(e.target.value) : null;
+                setError(null);
+                api.updateThemeGroup(groupId, { themeId: tid })
+                  .then(() => {
+                    void qc.invalidateQueries({ queryKey: ['theme-group', groupId] });
+                    void qc.invalidateQueries({ queryKey: ['theme-groups'] });
+                  })
+                  .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to update theme.'));
+              }}
+            >
+              <option value="">None (use global theme)</option>
+              {namedThemes.data?.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
-          <Link
-            to={`/admin/groups/${groupId}/theme`}
-            className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:border-gray-600 hover:text-white transition-colors"
-          >
-            Edit Theme →
-          </Link>
+          {g.themeId && (
+            <Link
+              to={`/admin/themes/${g.themeId}`}
+              className="btn-secondary text-xs shrink-0"
+            >
+              Edit Theme →
+            </Link>
+          )}
+          {!g.themeId && (
+            <Link to="/admin/themes" className="text-xs text-indigo-400 hover:text-indigo-300 shrink-0">
+              Manage themes →
+            </Link>
+          )}
         </div>
+        {g.usingGlobal && (
+          <p className="mt-2 text-xs text-gray-500">
+            Using the <Link to="/admin/themes" className="text-indigo-400 hover:underline">global theme</Link>.
+            Select a theme from the library to give this group its own look.
+          </p>
+        )}
       </section>
 
       {/* Rooms in this group */}

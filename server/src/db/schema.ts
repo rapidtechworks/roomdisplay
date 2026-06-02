@@ -90,6 +90,7 @@ export interface ThemesTable {
   id: Generated<number>;
   name: string;                     // 'global' or custom name
   is_global: number;                // SQLite boolean (0/1); exactly one row = 1
+  is_named: number;                 // SQLite boolean (0/1); 1 = standalone library theme
   settings_json: string;            // JSON blob — shape defined in shared/Theme
   created_at: string;
   updated_at: string;
@@ -98,6 +99,28 @@ export interface ThemesTable {
 export type Theme = Selectable<ThemesTable>;
 export type NewTheme = Insertable<ThemesTable>;
 export type ThemeUpdate = Updateable<ThemesTable>;
+
+// ─── theme_schedules ─────────────────────────────────────────────────────────
+
+export interface ThemeSchedulesTable {
+  id: Generated<number>;
+  name: string;
+  theme_id: number;                 // FK → themes
+  scope_type: 'global' | 'group' | 'room';
+  scope_id: number | null;          // rooms.id or theme_groups.id; null for global
+  recurrence_type: 'weekly' | 'one_time';
+  day_of_week: number | null;       // 0=Sunday…6=Saturday; null for one_time
+  date: string | null;              // YYYY-MM-DD; null for weekly
+  start_time: string;               // HH:MM local time
+  end_time: string | null;          // HH:MM local time; null = until midnight
+  time_zone: string;
+  enabled: number;                  // SQLite boolean (0/1)
+  created_at: string;
+}
+
+export type ThemeSchedule = Selectable<ThemeSchedulesTable>;
+export type NewThemeSchedule = Insertable<ThemeSchedulesTable>;
+export type ThemeScheduleUpdate = Updateable<ThemeSchedulesTable>;
 
 // ─── tablets ─────────────────────────────────────────────────────────────────
 
@@ -136,6 +159,7 @@ export interface DB {
   walk_ups: WalkUpsTable;
   theme_groups: ThemeGroupsTable;
   themes: ThemesTable;
+  theme_schedules: ThemeSchedulesTable;
   tablets: TabletsTable;
   admin_config: AdminConfigTable;
 }
