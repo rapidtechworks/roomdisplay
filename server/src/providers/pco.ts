@@ -132,14 +132,13 @@ export class PcoProvider implements CalendarProvider {
       this.credentials,
     );
 
-    return items.map((r) => ({
-      id:   r.id,
-      // path_name shows "Folder / Room Name" — more useful than plain name when rooms are nested
-      name: ((r.attributes['path_name'] as string | undefined)?.trim()
-          || (r.attributes['name']      as string | undefined)?.trim()
-          || r.id),
-      kind: 'Room',
-    }));
+    return items.map((r) => {
+      const name     = (r.attributes['name']      as string | undefined)?.trim() || r.id;
+      const pathName = (r.attributes['path_name'] as string | undefined)?.trim();
+      // Include path_name as a parenthetical when it differs from name (i.e. room is inside a folder)
+      const label = pathName && pathName !== name ? `${name} (${pathName})` : name;
+      return { id: r.id, name: label, kind: 'Room' };
+    });
   }
 
   async fetchEvents(calendarId: string, from: Date, to: Date): Promise<RemoteEvent[]> {
