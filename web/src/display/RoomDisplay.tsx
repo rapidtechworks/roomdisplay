@@ -148,6 +148,13 @@ export function RoomDisplay({ slug }: Props) {
     }
   }, [showScreensaver, derived?.nextEvent, now, state?.theme.screensaverPreEventMinutes, wakeUp]);
 
+  // Map the 1–10 sensitivity setting to the fraction of the frame that must
+  // change before motion fires. Higher sensitivity → smaller fraction.
+  //   sensitivity 1  → 0.060 (≈6% must change; least twitchy)
+  //   sensitivity 10 → 0.005 (≈0.5%; very sensitive)
+  const motionSensitivity = Math.min(10, Math.max(1, state?.theme.screensaverMotionSensitivity ?? 5));
+  const motionDiffFraction = 0.06 - (motionSensitivity - 1) * (0.055 / 9);
+
   // Camera motion detection — runs continuously while the feature is enabled so
   // presence is detected BEFORE the screensaver fires. Any motion calls wakeUp,
   // which resets the idle timer (preventing the screensaver while someone is in
@@ -158,6 +165,7 @@ export function RoomDisplay({ slug }: Props) {
       && (state?.theme.screensaverEnabled ?? false)
       && !previewMode,
     onMotion: wakeUp,
+    diffFraction: motionDiffFraction,
   });
 
   // ── Loading / not-found screen ──────────────────────────────────────────────

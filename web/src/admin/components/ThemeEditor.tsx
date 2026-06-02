@@ -571,6 +571,14 @@ export function ThemeEditor({
             <RangeField label="Idle time before activation (minutes)" value={value.screensaverIdleMinutes} onChange={(v) => set('screensaverIdleMinutes', v)} min={1} max={30} step={1} wide />
             <RangeField label="Wake display before next event (minutes)" value={value.screensaverPreEventMinutes} onChange={(v) => set('screensaverPreEventMinutes', v)} min={5} max={60} step={5} wide />
             <ToggleField label="Wake on camera motion" value={value.screensaverUseCameraMotion} onChange={(v) => set('screensaverUseCameraMotion', v)} note="Uses the tablet's front camera for presence: motion keeps the screen awake (resetting the idle timer so the screensaver won't start while someone is in front of it) and wakes it if the screensaver is already showing. The camera runs continuously while this is on. Requires HTTPS and camera permission on each tablet; falls back to touch-only if unavailable." wide />
+            <RangeField label="Camera motion sensitivity" value={value.screensaverMotionSensitivity} onChange={(v) => set('screensaverMotionSensitivity', v)} min={1} max={10} step={1} wide />
+            <Field label="" wide>
+              <p className="text-xs text-gray-500">
+                Higher = more sensitive (reacts to smaller movement). Lower if the screen
+                wakes from minor changes like lighting or distant motion. Only applies when
+                “Wake on camera motion” is on.
+              </p>
+            </Field>
             <Field label="Verify on each tablet" wide>
               <p className="text-xs text-gray-500">
                 Camera support depends on the device. On each tablet, open{' '}

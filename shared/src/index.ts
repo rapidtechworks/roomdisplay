@@ -108,6 +108,7 @@ export interface Theme {
   screensaverIdleMinutes: number;       // minutes of inactivity before activating
   screensaverPreEventMinutes: number;   // wake display this many minutes before next event
   screensaverUseCameraMotion: boolean;  // opt-in: wake on camera motion
+  screensaverMotionSensitivity: number; // 1 (least sensitive) – 10 (most); tunes camera motion threshold
   screensaverTextColor: string;         // colour of drifting room name / clock text
 
   // Logo
@@ -172,6 +173,7 @@ export const DEFAULT_THEME: Theme = {
   screensaverIdleMinutes: 5,
   screensaverPreEventMinutes: 15,
   screensaverUseCameraMotion: false,
+  screensaverMotionSensitivity: 5,
   screensaverTextColor: 'rgba(255, 255, 255, 0.2)',
 
   logoImagePath: null,
