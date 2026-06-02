@@ -94,11 +94,15 @@ export function RoomDisplay({ slug }: Props) {
   const scheduleScreensaver = useCallback(() => {
     if (previewMode) return;
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    const theme = themeRef.current;
+    const theme   = themeRef.current;
+    const derived = derivedRef.current;
     if (!theme?.screensaverEnabled) return;
 
+    // Don't start the idle timer while the room is in use, if that setting is on
+    if (theme.screensaverDisableDuringMeeting && derived?.status !== 'available') return;
+
     idleTimerRef.current = setTimeout(() => {
-      setShowScreensaver(true); // activates during any status — screensaver shows current state
+      setShowScreensaver(true);
     }, theme.screensaverIdleMinutes * 60_000);
   }, []); // stable — reads from refs internally
 
@@ -128,7 +132,7 @@ export function RoomDisplay({ slug }: Props) {
     return () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
-  }, [derived?.status, state?.theme.screensaverEnabled, state?.theme.screensaverIdleMinutes, scheduleScreensaver]);
+  }, [derived?.status, state?.theme.screensaverEnabled, state?.theme.screensaverIdleMinutes, state?.theme.screensaverDisableDuringMeeting, scheduleScreensaver]);
 
   // On status change: briefly wake the display so the new status is visible,
   // then let the idle timer bring the screensaver back naturally.

@@ -105,11 +105,12 @@ export interface Theme {
 
   // Screensaver (burn-in protection)
   screensaverEnabled: boolean;
-  screensaverIdleMinutes: number;       // minutes of inactivity before activating
-  screensaverPreEventMinutes: number;   // wake display this many minutes before next event
-  screensaverUseCameraMotion: boolean;  // opt-in: wake on camera motion
-  screensaverMotionSensitivity: number; // 1 (least sensitive) – 10 (most); tunes camera motion threshold
-  screensaverTextColor: string;         // colour of drifting room name / clock text
+  screensaverIdleMinutes: number;             // minutes of inactivity before activating
+  screensaverPreEventMinutes: number;         // wake display this many minutes before next event
+  screensaverDisableDuringMeeting: boolean;   // when true, screensaver won't activate while room is occupied/ending-soon
+  screensaverUseCameraMotion: boolean;        // opt-in: wake on camera motion
+  screensaverMotionSensitivity: number;       // 1 (least sensitive) – 10 (most); tunes camera motion threshold
+  screensaverTextColor: string;               // colour of drifting room name / clock text
 
   // Logo
   logoImagePath: string | null;
@@ -172,6 +173,7 @@ export const DEFAULT_THEME: Theme = {
   screensaverEnabled: true,
   screensaverIdleMinutes: 5,
   screensaverPreEventMinutes: 15,
+  screensaverDisableDuringMeeting: false,
   screensaverUseCameraMotion: false,
   screensaverMotionSensitivity: 5,
   screensaverTextColor: 'rgba(255, 255, 255, 0.2)',
